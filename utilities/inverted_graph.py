@@ -8,45 +8,35 @@ import shapely as sh
 # sys.path.insert(0, './globals.py')
 from utilities.globals import *
 
-# CONVERT STREET SEGMENTS TO MANOEUVRE GRAPH ===================================
-def get_manoeuvre_edge(
+
+# CONVERT STREET SEGMENTS TO INVERTED GRAPH ====================================
+def get_inverted_edge(
         i_segment: dict,
         j_segment: dict):
     if i_segment['coordinates'][1] == j_segment['coordinates'][0]:
         manoeuvre = get_manoeuvre(i_segment, j_segment)
-        coordinates = i_segment['coordinates'][1]
-        return {'head': str(j_segment['segment_id']) + '_t',
-                'tail': str(i_segment['segment_id']) + '_h',
+        coordinates = [tuple([tail + (head - tail) / 2
+            for tail, head in zip(*i_segment['coordinates'])]),
+            tuple([tail + (head - tail) / 2
+            for tail, head in zip(*j_segment['coordinates'])])]
+
+        return {'head': j_segment['segment_id'],
+                'tail': i_segment['segment_id'],
                 'coordinates': coordinates,
                 'weight': get_manoeuvre_penalty(manoeuvre),
-                'geometry': sh.geometry.Point(coordinates),
+                'geometry': sh.geometry.LineString(coordinates),
                 'manoeuvre': manoeuvre}
     else:
         return None
 
 
-def get_manoeuvre_graph(
+def get_inverted_graph(
         street_segments: list):
     g = nx.DiGraph()
     
-    for segment in street_segments:
-        head = str(segment['segment_id']) + '_h'
-        tail = str(segment['segment_id']) + '_t'
-        g.add_edge(
-            tail,
-            head,
-            weight=0,
-            segment_id=segment['segment_id'],
-            geometry=segment['geometry'],
-            coordinates=segment['coordinates'],
-            manoeuvre='go_straight'
-            )
-        g.node[head]['coordinates'] = segment['coordinates'][1]
-        g.node[tail]['coordinates'] = segment['coordinates'][0]
-    
     for i_segment in street_segments:
         for j_segment in street_segments:
-            edge_data = get_manoeuvre_edge(i_segment, j_segment)
+            edge_data = get_inverted_edge(i_segment, j_segment)
             if edge_data is not None:
                 g.add_edge(
                     edge_data['tail'],
@@ -55,15 +45,22 @@ def get_manoeuvre_graph(
                     geometry=edge_data['geometry'],
                     coordinates=edge_data['coordinates'],
                     manoeuvre=edge_data['manoeuvre'])
+
+                g.node[edge_data['head']]['coordinates'] = edge_data['coordinates'][1]
+                g.node[edge_data['tail']]['coordinates'] = edge_data['coordinates'][0]
     return g
 
+# PRUNE INVERTED GRAPH =========================================================
 
-# VISUALISE MANOEUVRE GRAPH ====================================================
-def visualise_manoeuvre_graph(
+
+
+
+# VISUALISE INVERTED GRAPH =====================================================
+def visualise_inverted_graph(
         g: nx.DiGraph):
     nodes_coordinates = nx.get_node_attributes(g, 'coordinates')
     
-    g_statistics = get_manoeuvre_graph_statistics(g)
+    g_statistics = get_inverted_graph_statistics(g)
     dead_ends = g_statistics['dead_ends']
     disconnected_nodes = g_statistics['disconnected_nodes']
     
@@ -84,7 +81,7 @@ def visualise_manoeuvre_graph(
     plt.show()
 
     
-def get_manoeuvre_graph_statistics(
+def get_inverted_graph_statistics(
         g: nx.DiGraph):
     
     nodes_coordinates = nx.get_node_attributes(g, 'coordinates')
@@ -128,4 +125,3 @@ def get_manoeuvre_graph_statistics(
     print("{0} dead ends".format(len(dead_ends)))
     return{'dead_ends':dead_ends,
            'disconnected_nodes':disconnected_nodes}
-
