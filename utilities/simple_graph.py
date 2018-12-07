@@ -2,11 +2,11 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 
-# CONVERT STREET SEGMENTS TO GRAPH =============================================
+# CONVERT segment segmentS TO GRAPH =============================================
 def get_crossroads_dictionary(
-        street_segments: list):
+        segments: list):
     segments_coordinates = [segment['coordinates']
-        for segment in street_segments]
+        for segment in segments]
     sorted_coordinates = sorted(list(set([c
         for coordinates in segments_coordinates
         for c in coordinates])))
@@ -16,11 +16,11 @@ def get_crossroads_dictionary(
 
 
 def get_city_graph(
-        street_segments: list):
+        segments: list):
     g = nx.DiGraph()
     
-    crossroads = get_crossroads_dictionary(street_segments)
-    for segment in street_segments:
+    crossroads = get_crossroads_dictionary(segments)
+    for segment in segments:
         head = crossroads[segment['coordinates'][1]]
         tail = crossroads[segment['coordinates'][0]]
         g.add_edge(

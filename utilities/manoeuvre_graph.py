@@ -5,10 +5,9 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import shapely as sh
 
-# sys.path.insert(0, './globals.py')
 from utilities.globals import *
 
-# CONVERT STREET SEGMENTS TO MANOEUVRE GRAPH ===================================
+# CONVERT SEGMENTS TO MANOEUVRE GRAPH ===================================
 def get_manoeuvre_edge(
         i_segment: dict,
         j_segment: dict):
@@ -26,10 +25,10 @@ def get_manoeuvre_edge(
 
 
 def get_manoeuvre_graph(
-        street_segments: list):
+        segments: list):
     g = nx.DiGraph()
     
-    for segment in street_segments:
+    for segment in segments:
         head = str(segment['segment_id']) + '_h'
         tail = str(segment['segment_id']) + '_t'
         g.add_edge(
@@ -44,8 +43,8 @@ def get_manoeuvre_graph(
         g.node[head]['coordinates'] = segment['coordinates'][1]
         g.node[tail]['coordinates'] = segment['coordinates'][0]
     
-    for i_segment in street_segments:
-        for j_segment in street_segments:
+    for i_segment in segments:
+        for j_segment in segments:
             edge_data = get_manoeuvre_edge(i_segment, j_segment)
             if edge_data is not None:
                 g.add_edge(

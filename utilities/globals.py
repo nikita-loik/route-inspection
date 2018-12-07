@@ -1,14 +1,11 @@
 import numpy as np
 
+
 # RANDOM CITY PARAMETERS =======================================================
+CITY_SIZE = [12, 8]
+DISTRICT_SIZE = [12, 8]
+FREQUENCIES = [0.2, 0.5, 0.15, 0.15]
 
-WEST_TO_EAST = 12
-SOUTH_TO_NORTH = 8
-
-NO_WAY_FREQUENCY = 0.2
-TWO_WAY_FREQUENCY = 0.5
-ONE_WAY_FORWARD_FREQUENCY = 0.15
-ONE_WAY_BACKWARD_FREQUENCY = 0.15
 
 # GRAPH GENERATION =============================================================
 def get_manoeuvre(

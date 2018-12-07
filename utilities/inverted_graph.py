@@ -5,11 +5,10 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import shapely as sh
 
-# sys.path.insert(0, './globals.py')
 from utilities.globals import *
 
 
-# CONVERT STREET SEGMENTS TO INVERTED GRAPH ====================================
+# CONVERT segment segmentS TO INVERTED GRAPH ====================================
 def get_inverted_edge(
         i_segment: dict,
         j_segment: dict):
@@ -31,11 +30,11 @@ def get_inverted_edge(
 
 
 def get_inverted_graph(
-        street_segments: list):
+        segments: list):
     g = nx.DiGraph()
     
-    for i_segment in street_segments:
-        for j_segment in street_segments:
+    for i_segment in segments:
+        for j_segment in segments:
             edge_data = get_inverted_edge(i_segment, j_segment)
             if edge_data is not None:
                 g.add_edge(

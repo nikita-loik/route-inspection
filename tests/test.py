@@ -1,11 +1,7 @@
 # TEST CASES
 random_city = get_random_city(
-    west_to_east=2,
-    south_to_north=1,
-    no_way_frequency=0,
-    one_way_forward_frequencey=0,
-    one_way_backward_frequencey=0,
-    two_way_frequency=1
+    city_size = [2, 1],
+    frequencies = [0, 0, 0, 1],
     )
 # OUTPUT
 # 0 right turns
@@ -13,12 +9,8 @@ random_city = get_random_city(
 # 2 u-turns
 
 random_city = get_random_city(
-    west_to_east=2,
-    south_to_north=2,
-    no_way_frequency=0,
-    one_way_forward_frequencey=0,
-    one_way_backward_frequencey=0,
-    two_way_frequency=1
+    city_size = [2, 2],
+    frequencies = [0, 0, 0, 1],
     )
 # OUTPUT
 # 4 right turns
@@ -26,12 +18,8 @@ random_city = get_random_city(
 # 8 u-turns
 
 random_city = get_random_city(
-    west_to_east=3,
-    south_to_north=2,
-    no_way_frequency=0,
-    one_way_forward_frequencey=0,
-    one_way_backward_frequencey=0,
-    two_way_frequency=1
+    city_size = [3, 2],
+    frequencies = [0, 0, 0, 1],
     )
 # OUTPUT
 # 8 right turns

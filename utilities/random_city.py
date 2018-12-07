@@ -4,19 +4,18 @@ import matplotlib.pyplot as plt
 import shapely as sh
 from shapely import geometry
 
-WEST_TO_EAST = 12
-SOUTH_TO_NORTH = 8
-
-NO_WAY_FREQUENCY = 0.2
-TWO_WAY_FREQUENCY = 0.5
-ONE_WAY_FORWARD_FREQUENCY = 0.15
-ONE_WAY_BACKWARD_FREQUENCY = 0.15
+# # CITY_SIZE = [EAST_TO_WEST, SOUTH_TO_NORTH]
+# CITY_SIZE = [12, 8]
+# # DISTRICT_SIZE = [EAST_TO_WEST, SOUTH_TO_NORTH]
+# DISTRICT_SIZE = [12, 8]
+# # FREQUENCIES = [NO_WAY, ONE_WAY_FORWARD, ONE_WAY_BACKWORD, TWO_WAY]
+# FREQUENCIES = [0.2, 0.15, 0.15, 0.5]
+from utilities.globals import *
 
 random.seed(0)
 
-
 # VISUALISE RANDOM CITY ========================================================
-def plot_city(
+def plot_area(
         city: list):
     
     plt.figure(figsize=(12, 8))
@@ -26,7 +25,7 @@ def plot_city(
     plt.axis('off')
     plt.show
 
-def get_city_statistics(
+def get_area_statistics(
         city: list):
 
     segment_ids = [s['segment_id'] for s in city]
@@ -46,38 +45,26 @@ def get_city_statistics(
 
 # CREATE RANDOM CITY ===========================================================
 def get_random_direction(
-        no_way_frequency: float = NO_WAY_FREQUENCY,
-        one_way_forward_frequencey: float = ONE_WAY_FORWARD_FREQUENCY,
-        one_way_backward_frequencey: float = ONE_WAY_BACKWARD_FREQUENCY,
-        two_way_frequency: float = TWO_WAY_FREQUENCY):
+        frequencies: list = FREQUENCIES):
+
     direction = random.choices(
         [0, 1, 2, 3],
-        weights=[
-            no_way_frequency,
-            one_way_forward_frequencey,
-            one_way_backward_frequencey,
-            two_way_frequency],
+        weights=frequencies,
         k=1)[0]
     return direction
 
-def get_street_segments(
+def get_segments(
         segment_id: int,
         coordinates: list,
-        west_to_east: int = WEST_TO_EAST,
-        south_to_north: int = SOUTH_TO_NORTH,
-        no_way_frequency: float = NO_WAY_FREQUENCY,
-        one_way_forward_frequencey: float = ONE_WAY_FORWARD_FREQUENCY,
-        one_way_backward_frequencey: float = ONE_WAY_BACKWARD_FREQUENCY,
-        two_way_frequency: float = TWO_WAY_FREQUENCY
+        city_size: list = CITY_SIZE,
+        frequencies: list = FREQUENCIES,
         ):
-    direction = get_random_direction(
-        no_way_frequency,
-        one_way_forward_frequencey,
-        one_way_backward_frequencey,
-        two_way_frequency)
+
+    direction = get_random_direction(frequencies)
+
     if ((direction == 0)
-        or (coordinates[1][0] >= west_to_east)
-        or (coordinates[1][1] >= south_to_north)):
+        or (coordinates[1][0] >= city_size[0])
+        or (coordinates[1][1] >= city_size[1])):
         return ()
     if direction == 1:
         return ({'segment_id': segment_id,
@@ -100,41 +87,76 @@ def get_street_segments(
                  'geometry': sh.geometry.LineString(coordinates[::-1])})
 
 def get_random_city(
-        west_to_east: int = WEST_TO_EAST,
-        south_to_north: int = SOUTH_TO_NORTH,
-        no_way_frequency: float = NO_WAY_FREQUENCY,
-        one_way_forward_frequencey: float = ONE_WAY_FORWARD_FREQUENCY,
-        one_way_backward_frequencey: float = ONE_WAY_BACKWARD_FREQUENCY,
-        two_way_frequency: float = TWO_WAY_FREQUENCY
+        city_size: list = CITY_SIZE,
+        frequencies: list = FREQUENCIES,
         ) -> list:
     city = []
     segment_id = 1
-    for i in range(west_to_east):
-        for j in range(south_to_north):
-            segments = get_street_segments(
+    for i in range(city_size[0]):
+        for j in range(city_size[1]):
+            segments = get_segments(
                 segment_id,
                 [(i, j), (i+1, j)],
-                west_to_east,
-                south_to_north,
-                no_way_frequency,
-                one_way_forward_frequencey,
-                one_way_backward_frequencey,
-                two_way_frequency)
+                city_size,
+                frequencies,
+                )
             for s in segments:
                 city.append(s)
             segment_id += 1
 
-            segments = get_street_segments(
+            segments = get_segments(
                 segment_id,
                 [(i, j), (i, j+1)],
-                west_to_east,
-                south_to_north,
-                no_way_frequency,
-                one_way_forward_frequencey,
-                one_way_backward_frequencey,
-                two_way_frequency)
+                city_size,
+                frequencies,
+                )
             for s in segments:
                 city.append(s)
             segment_id += 1
 
     return city
+
+
+# SELECT RANDOM DISTRICT =======================================================
+def get_random_district_borders(
+    city_size: list = CITY_SIZE,
+    district_size: list = DISTRICT_SIZE):
+    
+    western_border = random.randint(0, city_size[0]-district_size[0])
+    eastern_border = western_border + district_size[0]
+    southern_border = random.randint(0, city_size[1]-district_size[1])
+    nothern_border = southern_border + district_size[1]
+    district_borders = [(western_border, southern_border),
+        (eastern_border, nothern_border)]
+    return district_borders
+
+
+def check_segment_within_district(
+    district_borders: list,
+    segment_coordinates: list):
+    for c in segment_coordinates:
+        if ((c[0] < district_borders[0][0])
+            or (c[0] > district_borders[1][0])
+            or (c[1] < district_borders[0][1])
+            or (c[1] > district_borders[1][1])):
+            return False
+    else:
+        return True
+    return district_borders
+
+
+def select_random_district(
+        city: list,
+        city_size: list = CITY_SIZE,
+        district_size: list = DISTRICT_SIZE,
+        ) -> list:
+
+    district_borders = get_random_district_borders(city_size, district_size)
+
+    random_district = []
+    for segment in city:
+        if check_segment_within_district(
+            district_borders,
+            segment['coordinates']) is True:
+            random_district.append(segment)
+    return random_district
