@@ -4,15 +4,16 @@ import matplotlib.pyplot as plt
 import shapely as sh
 from shapely import geometry
 
-# # CITY_SIZE = [EAST_TO_WEST, SOUTH_TO_NORTH]
-# CITY_SIZE = [12, 8]
-# # DISTRICT_SIZE = [EAST_TO_WEST, SOUTH_TO_NORTH]
-# DISTRICT_SIZE = [12, 8]
-# # FREQUENCIES = [NO_WAY, ONE_WAY_FORWARD, ONE_WAY_BACKWORD, TWO_WAY]
-# FREQUENCIES = [0.2, 0.15, 0.15, 0.5]
-from utilities.globals import *
+import utilities.globals as g_globals
 
 random.seed(0)
+
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(asctime)s: %(filename)s: %(lineno)s:\n%(message)s")
+logger = logging.getLogger(__name__)
+
 
 # VISUALISE RANDOM CITY ========================================================
 def plot_area(
@@ -37,15 +38,16 @@ def get_area_statistics(
         for s in city
         if -s['segment_id'] not in segment_ids])
     
-    print("{0} segments".format(n_segments))
-    print("{0} one-way".format(n_one_way_segments))
-    print("{0} two-way".format(n_two_way_segments))
+    logger.info(
+        f"\t{n_segments} segments\n"
+        f"\t{n_one_way_segments} one-way\n"
+        f"\t{n_two_way_segments} two-way\n")
 
 
 
 # CREATE RANDOM CITY ===========================================================
 def get_random_direction(
-        frequencies: list = FREQUENCIES):
+        frequencies: list = g_globals.FREQUENCIES):
 
     direction = random.choices(
         [0, 1, 2, 3],
@@ -56,8 +58,8 @@ def get_random_direction(
 def get_segments(
         segment_id: int,
         coordinates: list,
-        city_size: list = CITY_SIZE,
-        frequencies: list = FREQUENCIES,
+        city_size: list = g_globals.CITY_SIZE,
+        frequencies: list = g_globals.FREQUENCIES,
         ):
 
     direction = get_random_direction(frequencies)
@@ -87,8 +89,8 @@ def get_segments(
                  'geometry': sh.geometry.LineString(coordinates[::-1])})
 
 def get_random_city(
-        city_size: list = CITY_SIZE,
-        frequencies: list = FREQUENCIES,
+        city_size: list = g_globals.CITY_SIZE,
+        frequencies: list = g_globals.FREQUENCIES,
         ) -> list:
     city = []
     segment_id = 1
@@ -113,50 +115,5 @@ def get_random_city(
             for s in segments:
                 city.append(s)
             segment_id += 1
-
+    get_area_statistics(city)
     return city
-
-
-# SELECT RANDOM DISTRICT =======================================================
-def get_random_district_borders(
-    city_size: list = CITY_SIZE,
-    district_size: list = DISTRICT_SIZE):
-    
-    western_border = random.randint(0, city_size[0]-district_size[0])
-    eastern_border = western_border + district_size[0]
-    southern_border = random.randint(0, city_size[1]-district_size[1])
-    nothern_border = southern_border + district_size[1]
-    district_borders = [(western_border, southern_border),
-        (eastern_border, nothern_border)]
-    return district_borders
-
-
-def check_segment_within_district(
-    district_borders: list,
-    segment_coordinates: list):
-    for c in segment_coordinates:
-        if ((c[0] < district_borders[0][0])
-            or (c[0] > district_borders[1][0])
-            or (c[1] < district_borders[0][1])
-            or (c[1] > district_borders[1][1])):
-            return False
-    else:
-        return True
-    return district_borders
-
-
-def select_random_district(
-        city: list,
-        city_size: list = CITY_SIZE,
-        district_size: list = DISTRICT_SIZE,
-        ) -> list:
-
-    district_borders = get_random_district_borders(city_size, district_size)
-
-    random_district = []
-    for segment in city:
-        if check_segment_within_district(
-            district_borders,
-            segment['coordinates']) is True:
-            random_district.append(segment)
-    return random_district
