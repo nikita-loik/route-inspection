@@ -1,10 +1,11 @@
 import random
+import numpy as np
 import matplotlib.pyplot as plt
 
 import shapely as sh
 from shapely import geometry
 
-import utilities.globals as g_globals
+import utilities.globals as ug
 
 random.seed(0)
 
@@ -15,51 +16,70 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# VISUALISE RANDOM CITY ========================================================
+# VISUALISE RANDOM CITY =======================================================
 def plot_area(
-        city: list):
+        edges: list):
+
+    nodes = list(set([p for s in edges for p in s['coordinates']]))
+
+    x_min = min([p[0] for p in nodes])
+    x_max = max([p[0] for p in nodes])
+    y_min = min([p[1] for p in nodes])
+    y_max = max([p[1] for p in nodes])
     
-    plt.figure(figsize=(12, 8))
-    for segment in city:
-        x, y = zip(*segment['coordinates'])
+    fig, ax = plt.subplots(1, 1, figsize=(16, 12))
+    for s in edges:
+        x, y = zip(*s['coordinates'])
         plt.plot(x, y)
-    plt.axis('off')
+    plt.xticks(np.arange(x_min, x_max + 1.0, 1), fontsize=14)
+    plt.yticks(np.arange(y_min, y_max + 1.0, 1), fontsize=14)
+    ax.set_xlim(x_min - 1, x_max + 1)
+    ax.set_ylim(y_min - 1, y_max + 1)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    # plt.axis('off')
     plt.show
 
 def get_area_statistics(
         city: list):
 
-    segment_ids = [s['segment_id'] for s in city]
-    n_segments = len(segment_ids)
-    n_two_way_segments = len([s['segment_id']
+    edge_ids = [s['edge_id'] for s in city]
+    n_edges = len(edge_ids)
+    n_two_way_edges = len([s['edge_id']
         for s in city
-        if s['segment_id']<0])
-    n_one_way_segments = len([s['segment_id']
+        if s['edge_id']<0])
+    n_one_way_edges = len([s['edge_id']
         for s in city
-        if -s['segment_id'] not in segment_ids])
+        if -s['edge_id'] not in edge_ids])
     
     logger.info(
-        f"\t{n_segments} segments\n"
-        f"\t{n_one_way_segments} one-way\n"
-        f"\t{n_two_way_segments} two-way\n")
+        f"\t{n_edges} edges\n"
+        f"\t{n_one_way_edges} one-way\n"
+        f"\t{n_two_way_edges} two-way")
 
 
 
-# CREATE RANDOM CITY ===========================================================
+# GET RANDOM CITY =============================================================
 def get_random_direction(
-        frequencies: list = g_globals.FREQUENCIES):
-
+        frequencies: list = ug.FREQUENCIES):
+    # directions:
+    # 0 — no_way
+    # 1 — one_way_direct
+    # 2 — one_way_reverse
+    # 3 — two_way
     direction = random.choices(
         [0, 1, 2, 3],
         weights=frequencies,
         k=1)[0]
     return direction
 
-def get_segments(
-        segment_id: int,
+def get_edges(
+        edge_id: int,
         coordinates: list,
-        city_size: list = g_globals.CITY_SIZE,
-        frequencies: list = g_globals.FREQUENCIES,
+        city_size: tuple = ug.CITY_SIZE,
+        frequencies: list = ug.FREQUENCIES,
         ):
 
     direction = get_random_direction(frequencies)
@@ -69,51 +89,175 @@ def get_segments(
         or (coordinates[1][1] >= city_size[1])):
         return ()
     if direction == 1:
-        return ({'segment_id': segment_id,
+        return ({'edge_id': edge_id,
                  'direction': direction,
                  'coordinates': coordinates,
                  'geometry': sh.geometry.LineString(coordinates)},)
     if direction == 2:
-        return ({'segment_id': segment_id,
+        return ({'edge_id': edge_id,
                  'direction': direction,
                  'coordinates': coordinates[::-1],
                  'geometry': sh.geometry.LineString(coordinates[::-1])},)
     if direction == 3:
-        return ({'segment_id': segment_id,
+        return ({'edge_id': edge_id,
                  'direction': direction,
                  'coordinates': coordinates,
                  'geometry': sh.geometry.LineString(coordinates)},
-                {'segment_id': -segment_id,
+                {'edge_id': -edge_id,
                  'direction': direction,
                  'coordinates': coordinates[::-1],
                  'geometry': sh.geometry.LineString(coordinates[::-1])})
 
+    # if ((direction == 0)
+    #     or (coordinates[1][0] >= city_size[0])
+    #     or (coordinates[1][1] >= city_size[1])):
+    #     return ()
+    # if direction == 1:
+    #     geometry = sh.geometry.LineString(
+    #         coordinates).parallel_offset(0.1)
+    #     return ({'edge_id': edge_id,
+    #              'direction': direction,
+    #              'coordinates': list(geometry.coords),
+    #              'geometry': geometry},)
+    # if direction == 2:
+    #     geometry = sh.geometry.LineString(
+    #         coordinates[::-1]).parallel_offset(0.1)
+    #     return ({'edge_id': edge_id,
+    #              'direction': direction,
+    #              'coordinates': list(geometry.coords),
+    #              'geometry': geometry},)
+    # if direction == 3:
+    #     geometry_i = sh.geometry.LineString(
+    #         coordinates).parallel_offset(0.1)
+    #     geometry_j = sh.geometry.LineString(
+    #         coordinates[::-1]).parallel_offset(0.1)
+    #     return ({'edge_id': edge_id,
+    #              'direction': direction,
+    #              'coordinates': list(geometry_i.coords),
+    #              'geometry': geometry_i},
+    #             {'edge_id': -edge_id,
+    #              'direction': direction,
+    #              'coordinates': list(geometry_j.coords),
+    #              'geometry': geometry_j})
+
+
 def get_random_city(
-        city_size: list = g_globals.CITY_SIZE,
-        frequencies: list = g_globals.FREQUENCIES,
+        city_size: tuple = ug.CITY_SIZE,
+        frequencies: list = ug.FREQUENCIES,
         ) -> list:
     city = []
-    segment_id = 1
+    edge_id = 1
     for i in range(city_size[0]):
         for j in range(city_size[1]):
-            segments = get_segments(
-                segment_id,
+            edges = get_edges(
+                edge_id,
                 [(i, j), (i+1, j)],
                 city_size,
                 frequencies,
                 )
-            for s in segments:
+            for s in edges:
                 city.append(s)
-            segment_id += 1
+            edge_id += 1
 
-            segments = get_segments(
-                segment_id,
+            edges = get_edges(
+                edge_id,
                 [(i, j), (i, j+1)],
                 city_size,
                 frequencies,
                 )
-            for s in segments:
+            for s in edges:
                 city.append(s)
-            segment_id += 1
+            edge_id += 1
     get_area_statistics(city)
     return city
+
+
+def get_nodes_dictionary(
+        edges: list
+        ):
+    nodes_coordinates = {}
+    sorted_nodes_coordinates = sorted(
+        list(set([n for e in edges for n in e['coordinates']])))
+    for n in sorted_nodes_coordinates:
+        nodes_coordinates[n] = sorted_nodes_coordinates.index(n)
+    return nodes_coordinates
+
+
+# def delete_disconnected_edges(
+#         edges: list):
+#     tails = [s['coordinates'][0] for s in edges]
+#     heads = [s['coordinates'][1] for s in edges]
+
+#     only_tails = []
+#     for t in tails:
+#         if t not in heads:
+#             only_tails.append(t)
+
+#     only_heads = []
+#     for h in heads:
+#         if h not in tails:
+#             only_heads.append(h)
+
+#     logger.info(
+#         f"only tails: {len(only_tails)}\nonly heads: {len(only_heads)}")
+
+#     clean_edges = []
+#     for s in edges:
+#         if ((s['coordinates'][0] not in only_tails)
+#            and (s['coordinates'][1] not in only_heads)):
+#             clean_edges.append(s)
+#     return clean_edges
+
+# GET RANDOM DISTRICT =========================================================
+def get_random_district_bbox(
+    city_size: tuple = ug.CITY_SIZE,
+    district_size: tuple = ug.DISTRICT_SIZE):
+    # western border - x_min
+    x_min = random.randint(0, city_size[0]-district_size[0])
+    # eastern border - x_max
+    x_max = x_min + district_size[0]
+    # southern border - y_min
+    y_min = random.randint(0, city_size[1]-district_size[1])
+    # nothern border - y_max
+    y_max = y_min + district_size[1]
+    district_bbox = [(x_min, y_min),
+        (x_max, y_max)]
+    return district_bbox
+
+def check_node_within_bbox(
+        node: tuple,
+        bbox: list,
+        ):
+    [(x_min, y_min), (x_max, y_max)] = bbox
+    if ((x_min <= node[0] <= x_max)
+        and (y_min <= node[1] <= y_max)):
+        return True
+    else:
+        return False
+
+def check_edge_within_district(
+        edge: dict,
+        district_bbox: list,
+        ):
+
+    if ((check_node_within_bbox(
+        edge['coordinates'][0], district_bbox) is True)
+        and (check_node_within_bbox(
+        edge['coordinates'][1], district_bbox) is True)):
+        return True
+    else:
+        return False
+
+
+def get_random_district(
+        city: list,
+        city_size: tuple = ug.CITY_SIZE,
+        district_size: tuple = ug.DISTRICT_SIZE,
+        ):
+    district_bbox = get_random_district_bbox(city_size, district_size)
+    logger.info(f"district borders: {district_bbox}")
+    random_district = []
+    for edge in city:
+        if check_edge_within_district(edge, district_bbox) is True:
+            random_district.append(edge)
+    return random_district

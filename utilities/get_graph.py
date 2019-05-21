@@ -6,7 +6,10 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import random
 
-import utilities.globals as g_globals
+import utilities.globals as ug
+import utilities.common as uc
+
+import utilities.get_random_city as grc
 
 import logging
 logging.basicConfig(
@@ -15,84 +18,75 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# A. get city graph ===========================================================
-def get_crossroads_dictionary(
-        segments: list):
-    segments_coordinates = [segment['coordinates']
-        for segment in segments]
-    sorted_coordinates = sorted(list(set([c
-        for coordinates in segments_coordinates
-        for c in coordinates])))
-    crossroads = {c: sorted_coordinates.index(c)
-        for c in sorted_coordinates}
-    return crossroads
-
-
-def get_city_graph(
-        segments: list):
+# A. get simple graph =========================================================
+def get_simple_graph(
+        edges: list):
     g = nx.DiGraph()
     
-    crossroads = get_crossroads_dictionary(segments)
-    for segment in segments:
-        head = crossroads[segment['coordinates'][1]]
-        tail = crossroads[segment['coordinates'][0]]
+    nodes = grc.get_nodes_dictionary(edges)
+    for e in edges:
+        tail = nodes[e['coordinates'][0]]
+        head = nodes[e['coordinates'][1]]
         g.add_edge(
             tail,
             head,
             weight=0,
-            segment_id=segment['segment_id'],
-            geometry=segment['geometry'],
-            coordinates=segment['coordinates']
+            edge_id=e['edge_id'],
+            geometry=e['geometry'],
+            coordinates=e['coordinates']
             )
-        g.node[head]['coordinates'] = segment['coordinates'][1]
-        g.node[tail]['coordinates'] = segment['coordinates'][0]
+        g.node[head]['coordinates'] = e['coordinates'][1]
+        g.node[tail]['coordinates'] = e['coordinates'][0]
 
-    # connected_nodes = sorted(
-    #     nx.strongly_connected_components(g),
-    #     key=len,
-    #     reverse=True)[0]
-    # disconnected_nodes = [
-    #     n for n in list(g.nodes())
-    #     if n not in connected_nodes]
+    connected_nodes = sorted(
+        nx.strongly_connected_components(g),
+        key=len,
+        reverse=True)[0]
+    disconnected_nodes = [
+        n for n in list(g.nodes())
+        if n not in connected_nodes]
     # g.remove_nodes_from(disconnected_nodes)
+
     return g
 
 # B. get manoeuvre graph ======================================================
-def get_manoeuvre(
-        i_segment: dict,
-        j_segment: dict):
+# def get_manoeuvre(
+#         edge_i: dict,
+#         edge_j: dict):
+#     angle = uc.get_angle_between_two_edges(
+#         edge_i, edge_j)
+
+    # v_i = np.array([head - tail
+    #     for tail, head in zip(*edge_i['coordinates'])])
+    # v_j = np.array([head - tail
+    #     for tail, head in zip(*edge_j['coordinates'])])
+    # cosine = np.vdot(v_i, v_j) / (np.linalg.norm(v_i) * np.linalg.norm(v_j))
+    # determinant = np.linalg.det([v_i, v_j])
+    # if determinant < 0:
+    #     angle = 180 * np.arccos(cosine) / np.pi
+    # else:
+    #     angle = 360 - (180 * np.arccos(cosine) / np.pi)
     
-    v_i = np.array([head - tail
-        for tail, head in zip(*i_segment['coordinates'])])
-    v_j = np.array([head - tail
-        for tail, head in zip(*j_segment['coordinates'])])
-    cosine = np.vdot(v_i, v_j) / (np.linalg.norm(v_i) * np.linalg.norm(v_j))
-    determinant = np.linalg.det([v_i, v_j])
-    if determinant < 0:
-        angle = 180 * np.arccos(cosine) / np.pi
-    else:
-        angle = 360 - (180 * np.arccos(cosine) / np.pi)
-    
-    if 30 < angle <= 175:
-        return 'turn_right'
-    elif 175 < angle <= 185:
-        return 'make_u_turn'
-    elif 185 < angle <= 330:
-        return 'turn_left'
-    elif (330 < angle) or (angle <= 30):
-        return 'go_straight'
+    # if 30 < angle <= 175:
+    #     return 'turn_right'
+    # elif 175 < angle <= 185:
+    #     return 'make_u_turn'
+    # elif 185 < angle <= 330:
+    #     return 'turn_left'
+    # elif (330 < angle) or (angle <= 30):
+    #     return 'go_straight'
 
 
 def get_manoeuvre_edge(
-        i_segment: dict,
-        j_segment: dict):
-    if i_segment['coordinates'][1] == j_segment['coordinates'][0]:
-        manoeuvre = get_manoeuvre(i_segment, j_segment)
-        coordinates = i_segment['coordinates'][1]
-        return {'head': str(j_segment['segment_id']) + '_t',
-                'tail': str(i_segment['segment_id']) + '_h',
+        edge_i: dict,
+        edge_j: dict):
+    if edge_i['coordinates'][1] == edge_j['coordinates'][0]:
+        manoeuvre = uc.get_manoeuvre(edge_i, edge_j)
+        coordinates = edge_i['coordinates'][1]
+        return {'head': str(edge_j['edge_id']) + '_t',
+                'tail': str(edge_i['edge_id']) + '_h',
                 'coordinates': coordinates,
-                'weight': g_globals.MANOEUVRE_PENALTY[manoeuvre],
+                'weight': ug.MANOEUVRE_PENALTY[manoeuvre],
                 'geometry': sh.geometry.Point(coordinates),
                 'manoeuvre': manoeuvre}
     else:
@@ -100,27 +94,36 @@ def get_manoeuvre_edge(
 
 
 def get_manoeuvre_graph(
-        segments: list):
+        edges: list):
     g = nx.DiGraph()
+
+    # nodes = {}
+    # sorted_nodes = sorted(
+    #     list(set([p for s in edges for p in s['coordinates']])))
+    # for p in sorted_nodes:
+    #     nodes[p] = sorted_nodes.index(p)
     
-    for segment in segments:
-        head = str(segment['segment_id']) + '_h'
-        tail = str(segment['segment_id']) + '_t'
+    for edge in edges:
+        tail = str(edge['edge_id']) + '_t'
+        head = str(edge['edge_id']) + '_h'
+        # tail = nodes[edge['coordinates'][0]]
+        # head = nodes[edge['coordinates'][1]]
+        
         g.add_edge(
             tail,
             head,
             weight=0,
-            segment_id=segment['segment_id'],
-            geometry=segment['geometry'],
-            coordinates=segment['coordinates'],
+            edge_id=edge['edge_id'],
+            geometry=edge['geometry'],
+            coordinates=edge['coordinates'],
             manoeuvre='go_straight'
             )
-        g.node[head]['coordinates'] = segment['coordinates'][1]
-        g.node[tail]['coordinates'] = segment['coordinates'][0]
+        g.node[head]['coordinates'] = edge['coordinates'][1]
+        g.node[tail]['coordinates'] = edge['coordinates'][0]
     
-    for i_segment in segments:
-        for j_segment in segments:
-            edge_data = get_manoeuvre_edge(i_segment, j_segment)
+    for edge_i in edges:
+        for edge_j in edges:
+            edge_data = get_manoeuvre_edge(edge_i, edge_j)
             if edge_data is not None:
                 g.add_edge(
                     edge_data['tail'],
@@ -143,15 +146,19 @@ def get_manoeuvre_graph(
 
 # C. get random district graph ================================================
 def get_random_district_borders(
-    city_size: list = g_globals.CITY_SIZE,
-    district_size: list = g_globals.DISTRICT_SIZE):
-    
-    western_border = random.randint(0, city_size[0]-district_size[0])
-    eastern_border = western_border + district_size[0]
-    southern_border = random.randint(0, city_size[1]-district_size[1])
-    nothern_border = southern_border + district_size[1]
-    district_borders = [(western_border, southern_border),
-        (eastern_border, nothern_border)]
+    city_size: list = ug.CITY_SIZE,
+    district_size: list = ug.DISTRICT_SIZE):
+
+    # western border - x_min
+    x_min = random.randint(0, city_size[0]-district_size[0])
+    # eastern border - x_max
+    x_max = x_min + district_size[0]
+    # southern border - y_min
+    y_min = random.randint(0, city_size[1]-district_size[1])
+    # nothern border - y_max
+    y_max = y_min + district_size[1]
+    district_borders = [(x_min, y_min),
+        (x_max, y_max)]
     return district_borders
 
 
@@ -170,8 +177,8 @@ def check_node_within_district(
 
 def get_random_district_graph(
         city_g: nx.DiGraph,
-        city_size: list = g_globals.CITY_SIZE,
-        district_size: list = g_globals.DISTRICT_SIZE,
+        city_size: list = ug.CITY_SIZE,
+        district_size: list = ug.DISTRICT_SIZE,
         ) -> list:
 
     district_borders = get_random_district_borders(city_size, district_size)
@@ -195,19 +202,19 @@ def get_random_district_graph(
 
 # D. get inverted graph =======================================================
 def get_inverted_edge(
-        i_segment: dict,
-        j_segment: dict):
-    if i_segment['coordinates'][1] == j_segment['coordinates'][0]:
-        manoeuvre = get_manoeuvre(i_segment, j_segment)
+        edge_i: dict,
+        edge_j: dict):
+    if edge_i['coordinates'][1] == edge_j['coordinates'][0]:
+        manoeuvre = uc.get_manoeuvre(edge_i, edge_j)
         coordinates = [tuple([tail + (head - tail) / 2
-            for tail, head in zip(*i_segment['coordinates'])]),
+            for tail, head in zip(*edge_i['coordinates'])]),
             tuple([tail + (head - tail) / 2
-            for tail, head in zip(*j_segment['coordinates'])])]
+            for tail, head in zip(*edge_j['coordinates'])])]
 
-        return {'head': j_segment['segment_id'],
-                'tail': i_segment['segment_id'],
+        return {'head': edge_j['edge_id'],
+                'tail': edge_i['edge_id'],
                 'coordinates': coordinates,
-                'weight': g_globals.MANOEUVRE_PENALTY[manoeuvre],
+                'weight': ug.MANOEUVRE_PENALTY[manoeuvre],
                 'geometry': sh.geometry.LineString(coordinates),
                 'manoeuvre': manoeuvre}
     else:
@@ -215,12 +222,12 @@ def get_inverted_edge(
 
 
 def get_inverted_graph(
-        segments: list):
+        edges: list):
     g = nx.DiGraph()
     
-    for i_segment in segments:
-        for j_segment in segments:
-            edge_data = get_inverted_edge(i_segment, j_segment)
+    for edge_i in edges:
+        for edge_j in edges:
+            edge_data = get_inverted_edge(edge_i, edge_j)
             if edge_data is not None:
                 g.add_edge(
                     edge_data['tail'],

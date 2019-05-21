@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import shapely as sh
 
-import utilities.globals as g_globals
+import utilities.globals as ug
+import utilities.common as uc
+
 import utilities.visualise_graph as vg
 
 import logging
@@ -67,10 +69,10 @@ def get_grafting_nodes_and_edges(
         # else:
         #     logger.info("02 wrong head")
 
-    logger.info(
-        f"nodes to add: {nodes_to_add}\n"
-        f"edges to add: {edges_to_add}"
-        )
+    # logger.info(
+    #     f"nodes to add: {nodes_to_add}\n"
+    #     f"edges to add: {edges_to_add}"
+    #     )
 
     return {'nodes_to_add': nodes_to_add,
             'edges_to_add': edges_to_add}
@@ -116,9 +118,9 @@ def add_connecting_grafts(
         g, super_g, condenced_g, 1, 0)['edges_to_add']:
         edges_to_add.append(e)
 
-    logger.info(
-        f"added edges: {edges_to_add}\n"
-        f"added nodes: {nodes_to_add}")
+    # logger.info(
+    #     f"added edges: {edges_to_add}\n"
+    #     f"added nodes: {nodes_to_add}")
 
     working_g = g.copy()
     for tail, head in edges_to_add:
@@ -136,15 +138,119 @@ def add_connecting_grafts(
 
     # ugly way to remove disconnected nodes;
     # in fact, they should not be included into the graph from the very start.
-    connected_nodes = sorted(
-        nx.strongly_connected_components(working_g),
-        key=len,
-        reverse=True)[0]
-    disconnected_nodes = []
-    for n in working_g.nodes():
-        if n not in connected_nodes:
-            disconnected_nodes.append(n)
-    working_g.remove_nodes_from(disconnected_nodes)
+    # connected_nodes = sorted(
+    #     nx.strongly_connected_components(working_g),
+    #     key=len,
+    #     reverse=True)[0]
+    # disconnected_nodes = []
+    # for n in working_g.nodes():
+    #     if n not in connected_nodes:
+    #         disconnected_nodes.append(n)
+    # working_g.remove_nodes_from(disconnected_nodes)
 
     return working_g
 
+
+# join edges in graph =========================================================
+def join_two_linestrings(
+        linestring_i,
+        linestring_j,
+        ):
+    '''
+    Takes two linestrings.
+    NB! asumes linestring_i has correct geometry,
+    therefore linestring_i geometry is never inverted
+    '''
+    coords_i = list(linestring_i.coords)
+    coords_j = list(linestring_j.coords)
+    if coords_i[0] == coords_j[0]:
+        new_coords = coords_j[::-1][:-1] + coords_i
+        return sh.geometry.LineString(new_coords)
+    elif coords_i[0] == coords_j[-1]:
+        new_coords = coords_j[:-1] + coords_i
+        return sh.geometry.LineString(new_coords)
+    elif coords_i[-1] == coords_j[0]:
+        new_coords = coords_i + coords_j[1:]
+        return sh.geometry.LineString(new_coords)
+    elif coords_i[-1] == coords_j[-1]:
+        new_coords = coords_i + coords_j[::-1][1:]
+        return sh.geometry.LineString(new_coords)
+
+
+def get_splitting_nodes(
+        g: nx.DiGraph
+        ):
+    splitting_nodes = []
+    # for n in g.nodes():
+    #     if ((len(g.in_edges(n))==1)
+    #         and (len(g.out_edges(n))==1)):
+    #         edge_i = g.get_edge_data(*list(g.in_edges(n))[0])
+    #         edge_j = g.get_edge_data(*list(g.out_edges(n))[0])
+    #         if uc.get_manoeuvre(
+    #             edge_i, edge_j) == 'go_straight':
+    #             splitting_nodes.append(n)
+    for n in g.nodes():
+        if ((len(g.in_edges(n))==1)
+            and (len(g.out_edges(n))==1)):
+            segment_i = g.get_edge_data(*list(g.in_edges(n))[0])
+            segment_j = g.get_edge_data(*list(g.out_edges(n))[0])
+            if ((segment_i['manoeuvre'] == 'go_straight')
+                and (segment_j['manoeuvre'] == 'go_straight')):
+                splitting_nodes.append(n)
+    return splitting_nodes
+
+def join_split_edges(
+        g: nx.DiGraph
+        ):
+    splitting_nodes = get_splitting_nodes(g)
+    while len(splitting_nodes) > 0:
+        g = join_edges(g, splitting_nodes)
+    logger.info(f"removed {len(splitting_nodes)} nodes")
+    return g
+
+
+# def get_combined_geometry_and_direction(e_a_data, e_b_data):
+#     if (e_a_data['direction'] == 3 and e_b_data['direction'] != 3):
+#         combined_geometry = join_two_linestrings(
+#             e_b_data['geometry'],
+#             e_a_data['geometry'])
+#         return {'geometry': combined_geometry,
+#                 'direction': e_b_data['direction']}
+#     else:
+#         combined_geometry = join_two_linestrings(
+#             e_a_data['geometry'],
+#             e_b_data['geometry'])
+#         return {'geometry': combined_geometry,
+#                 'direction': e_a_data['direction']}
+
+
+def join_edges(
+        g: nx.DiGraph,
+        splitting_nodes: list,
+        ):
+    for n in splitting_nodes:
+        edge_i = g.get_edge_data(*list(g.in_edges(n))[0])
+        edge_j = g.get_edge_data(*list(g.out_edges(n))[0])
+        combined_geometry = join_two_linestrings(
+            edge_i['geometry'],
+            edge_j['geometry'])
+        combined_coordinates = [
+            edge_i['coordinates'][0],
+            edge_j['coordinates'][1]]
+        tail = list(g.in_edges(n))[0][0]
+        head = list(g.in_edges(n))[0][1]
+        # tail = list(g.neighbors(n))[0]
+        # head = list(g.neighbors(n))[1]
+        working_g = g.copy()
+        working_g.add_edge(
+            tail,
+            head,
+            weight=combined_geometry.length,
+            edge_id=str(edge_i['edge_id']),
+            geometry=combined_geometry,
+            coordinates=combined_coordinates
+            )
+        working_g.remove_node(n) 
+        return working_g
+    else:
+        return g

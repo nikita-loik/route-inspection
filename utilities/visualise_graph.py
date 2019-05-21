@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import shapely as sh
 
-import utilities.globals as g_globals
+import utilities.globals as ug
 
 import logging
 logging.basicConfig(
@@ -16,15 +16,13 @@ logger = logging.getLogger(__name__)
 
 # A. visualise city graph =====================================================
 
-def visualise_city_graph(
+def visualise_simple_graph(
         g: nx.DiGraph):
     nodes_coordinates = nx.get_node_attributes(g, 'coordinates')
     x_min = min([nc[0] for nc in nodes_coordinates.values()])
     x_max = max([nc[0] for nc in nodes_coordinates.values()])
     y_min = min([nc[1] for nc in nodes_coordinates.values()])
     y_max = max([nc[1] for nc in nodes_coordinates.values()])
-
-    # logger.info(f"{x_min}\n{x_max}\n{y_min}\n{y_max}")
 
     g_statistics = get_city_graph_statistics(g)
     dead_ends = g_statistics['dead_ends']
@@ -41,6 +39,12 @@ def visualise_city_graph(
         plt.scatter(*nodes_coordinates[n], s=500, c="grey", alpha=0.3)
     for n in disconnected_nodes:
         plt.scatter(*nodes_coordinates[n], s=500, c="red", alpha=0.3)
+    for n in g.nodes():
+        plt.text(
+            nodes_coordinates[n][0] + 0.1,
+            nodes_coordinates[n][1] + 0.1,
+            n,
+            color='r')
     # plt.axis('off')
     plt.xticks(np.arange(x_min, x_max + 1.0, 1), fontsize=14)
     plt.yticks(np.arange(y_min, y_max + 1.0, 1), fontsize=14)
@@ -122,6 +126,12 @@ def visualise_manoeuvre_graph(
             alpha=0.3)
     for n in disconnected_nodes:
         plt.scatter(n[0], n[1], s=500, c="red", alpha=0.3)
+    # for n in g.nodes():
+    #     plt.text(
+    #         nodes_coordinates[n][0] + 0.1,
+    #         nodes_coordinates[n][1] + 0.1,
+    #         n,
+    #         color='r')
     # plt.axis('off')
     plt.xticks(np.arange(x_min, x_max + 1, 1), fontsize=14)
     plt.yticks(np.arange(y_min, y_max + 1, 1), fontsize=14)
