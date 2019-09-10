@@ -7,7 +7,9 @@ import numpy as np
 import shapely as sh
 from shapely.ops import transform
 from shapely import wkt
+import matplotlib
 import matplotlib.pyplot as plt
+plt.style.use('fivethirtyeight')
 import networkx as nx
 import copy
 import dropbox

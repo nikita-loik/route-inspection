@@ -1,11 +1,14 @@
 import sys
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
+plt.style.use('fivethirtyeight')
 import networkx as nx
 import shapely as sh
 
 import utilities.globals as ug
+import utilities.get_random_city as grc
 
 import logging
 logging.basicConfig(
@@ -28,13 +31,31 @@ def visualise_simple_graph(
     dead_ends = g_statistics['dead_ends']
     disconnected_nodes = g_statistics['disconnected_nodes']
 
-    fig, ax = plt.subplots(1, 1, figsize=(16, 12))
-    nx.draw_networkx_nodes(
-        g,
-        nodes_coordinates,
-        node_size=20,
-        node_color="black")
-    nx.draw_networkx_edges(g, nodes_coordinates, alpha=0.5)
+    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+    # nx.draw_networkx_nodes(
+    #     g,
+    #     nodes_coordinates,
+    #     node_size=20,
+    #     node_color="black")
+    # nx.draw_networkx_edges(g, nodes_coordinates, alpha=0.5)
+    for e in g.edges:
+        e_coordinates = g.get_edge_data(*e)
+        # print(e_coordinates)
+        offset_coordinates = grc.get_offset_coordinates(e_coordinates)
+        # node_length = sh.geometry.LineString(offset_coordinates).length
+        # print(offset_coordinates)
+        # x, y = zip(*offset_coordinates)
+        plt.arrow(
+            offset_coordinates[0][0],
+            offset_coordinates[0][1],
+            offset_coordinates[1][0] - offset_coordinates[0][0],
+            offset_coordinates[1][1] - offset_coordinates[0][1],
+            head_width=0.1,
+            head_length=0.1,
+            fc='gray',
+            ec='gray',
+            width=0.05)
+
     for n in dead_ends:
         plt.scatter(*nodes_coordinates[n], s=500, c="grey", alpha=0.3)
     for n in disconnected_nodes:

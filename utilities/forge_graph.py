@@ -1,7 +1,11 @@
 import sys
 
 import numpy as np
+
+import matplotlib
 import matplotlib.pyplot as plt
+plt.style.use('fivethirtyeight')
+
 import networkx as nx
 import shapely as sh
 

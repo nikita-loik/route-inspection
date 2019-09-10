@@ -3,7 +3,9 @@ import sys
 import numpy as np
 import shapely as sh
 import networkx as nx
+import matplotlib
 import matplotlib.pyplot as plt
+plt.style.use('fivethirtyeight')
 import random
 
 import utilities.globals as ug
@@ -23,7 +25,7 @@ def get_simple_graph(
         edges: list):
     g = nx.DiGraph()
     
-    nodes = grc.get_nodes_dictionary(edges)
+    nodes = grc.get_points_dictionary(edges)
     for e in edges:
         tail = nodes[e['coordinates'][0]]
         head = nodes[e['coordinates'][1]]
@@ -31,7 +33,7 @@ def get_simple_graph(
             tail,
             head,
             weight=0,
-            edge_id=e['edge_id'],
+            edge_id=e['segment_id'],
             geometry=e['geometry'],
             coordinates=e['coordinates']
             )
