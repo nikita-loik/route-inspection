@@ -232,6 +232,7 @@ def join_edges(
         g: nx.DiGraph,
         splitting_nodes: list,
         ):
+    print(splitting_nodes)
     for n in splitting_nodes:
         edge_i = g.get_edge_data(*list(g.in_edges(n))[0])
         edge_j = g.get_edge_data(*list(g.out_edges(n))[0])

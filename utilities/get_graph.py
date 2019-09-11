@@ -85,8 +85,8 @@ def get_manoeuvre_edge(
     if edge_i['coordinates'][1] == edge_j['coordinates'][0]:
         manoeuvre = uc.get_manoeuvre(edge_i, edge_j)
         coordinates = edge_i['coordinates'][1]
-        return {'head': str(edge_j['edge_id']) + '_t',
-                'tail': str(edge_i['edge_id']) + '_h',
+        return {'head': str(edge_j['segment_id']) + '_t',
+                'tail': str(edge_i['segment_id']) + '_h',
                 'coordinates': coordinates,
                 'weight': ug.MANOEUVRE_PENALTY[manoeuvre],
                 'geometry': sh.geometry.Point(coordinates),
@@ -106,8 +106,8 @@ def get_manoeuvre_graph(
     #     nodes[p] = sorted_nodes.index(p)
     
     for edge in edges:
-        tail = str(edge['edge_id']) + '_t'
-        head = str(edge['edge_id']) + '_h'
+        tail = str(edge['segment_id']) + '_t'
+        head = str(edge['segment_id']) + '_h'
         # tail = nodes[edge['coordinates'][0]]
         # head = nodes[edge['coordinates'][1]]
         
@@ -115,7 +115,7 @@ def get_manoeuvre_graph(
             tail,
             head,
             weight=0,
-            edge_id=edge['edge_id'],
+            edge_id=edge['segment_id'],
             geometry=edge['geometry'],
             coordinates=edge['coordinates'],
             manoeuvre='go_straight'

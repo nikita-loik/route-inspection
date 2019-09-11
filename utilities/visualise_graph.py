@@ -19,6 +19,24 @@ logger = logging.getLogger(__name__)
 
 # A. visualise city graph =====================================================
 
+def plot_arrow(
+    coordinates: list):
+    x, y = coordinates[0]
+    x_end, y_end = coordinates[1]
+    dx = x_end - x
+    dy = y_end - y
+    plt.arrow(
+        x=x, y=y,
+        dx=dx, dy=dy,
+        length_includes_head=True,
+        shape='left',
+        head_width=0.13,
+        head_length=0.13,
+        facecolor='gray',
+        edgecolor='gray',
+        width=0.07)
+
+
 def visualise_simple_graph(
         g: nx.DiGraph):
     nodes_coordinates = nx.get_node_attributes(g, 'coordinates')
@@ -31,7 +49,7 @@ def visualise_simple_graph(
     dead_ends = g_statistics['dead_ends']
     disconnected_nodes = g_statistics['disconnected_nodes']
 
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+    fig, ax = plt.subplots(1, 1, figsize=ug.FIGURE_SIZE)
     # nx.draw_networkx_nodes(
     #     g,
     #     nodes_coordinates,
@@ -40,26 +58,33 @@ def visualise_simple_graph(
     # nx.draw_networkx_edges(g, nodes_coordinates, alpha=0.5)
     for e in g.edges:
         e_coordinates = g.get_edge_data(*e)
-        # print(e_coordinates)
         offset_coordinates = grc.get_offset_coordinates(e_coordinates)
-        # node_length = sh.geometry.LineString(offset_coordinates).length
-        # print(offset_coordinates)
-        # x, y = zip(*offset_coordinates)
-        plt.arrow(
-            offset_coordinates[0][0],
-            offset_coordinates[0][1],
-            offset_coordinates[1][0] - offset_coordinates[0][0],
-            offset_coordinates[1][1] - offset_coordinates[0][1],
-            head_width=0.1,
-            head_length=0.1,
-            fc='gray',
-            ec='gray',
-            width=0.05)
+        plot_arrow(offset_coordinates)
+        # plt.arrow(
+        #     offset_coordinates[0][0],
+        #     offset_coordinates[0][1],
+        #     offset_coordinates[1][0] - offset_coordinates[0][0],
+        #     offset_coordinates[1][1] - offset_coordinates[0][1],
+        #     length_includes_head=True,
+        #     shape='left',
+        #     head_width=0.13,
+        #     head_length=0.13,
+        #     facecolor='black',
+        #     edgecolor='black',
+        #     width=0.05)
 
     for n in dead_ends:
-        plt.scatter(*nodes_coordinates[n], s=500, c="grey", alpha=0.3)
+        plt.scatter(
+            *nodes_coordinates[n],
+            s=500,
+            c="grey",
+            alpha=0.3)
     for n in disconnected_nodes:
-        plt.scatter(*nodes_coordinates[n], s=500, c="red", alpha=0.3)
+        plt.scatter(
+            *nodes_coordinates[n],
+            s=500,
+            c="red",
+            alpha=0.3)
     for n in g.nodes():
         plt.text(
             nodes_coordinates[n][0] + 0.1,
@@ -131,13 +156,35 @@ def visualise_manoeuvre_graph(
     dead_ends = g_statistics['dead_ends']
     disconnected_nodes = g_statistics['disconnected_nodes']
     
-    fig, ax = plt.subplots(1, 1, figsize=(16, 12))
-    nx.draw_networkx_nodes(
-        g,
-        nodes_coordinates,
-        node_size=20,
-        node_color="black")
-    nx.draw_networkx_edges(g, nodes_coordinates, alpha=0.5)
+    fig, ax = plt.subplots(1, 1, figsize=ug.FIGURE_SIZE)
+    # nx.draw_networkx_nodes(
+    #     g,
+    #     nodes_coordinates,
+    #     node_size=20,
+    #     node_color="black")
+    # nx.draw_networkx_edges(g, nodes_coordinates, alpha=0.5)
+    for e in g.edges:
+        try:
+            e_coordinates = g.get_edge_data(*e)
+            # print(e_coordinates)
+            offset_coordinates = grc.get_offset_coordinates(e_coordinates)
+            # print(offset_coordinates)
+            plot_arrow(offset_coordinates)
+            # plt.arrow(
+            #     offset_coordinates[0][0],
+            #     offset_coordinates[0][1],
+            #     offset_coordinates[1][0] - offset_coordinates[0][0],
+            #     offset_coordinates
+            #     [1][1] - offset_coordinates[0][1],
+            #     length_includes_head=True,
+            #     shape='left',
+            #     head_width=0.13,
+            #     head_length=0.13,
+            #     facecolor='black',
+            #     edgecolor='black',
+            #     width=0.05)
+        except ValueError:
+            pass
     for n in dead_ends:
         plt.scatter(
             nodes_coordinates[n][0],

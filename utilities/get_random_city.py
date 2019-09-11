@@ -24,6 +24,7 @@ def get_offset_coordinates(
         segment: dict) -> list:
     s_linestring = sh.geometry.LineString(
         segment['coordinates'])
+    # NB! Parallel_offset reverses the coordinates.
     s_offset = s_linestring.parallel_offset(
         distance=.1,
         side='right')
@@ -32,8 +33,9 @@ def get_offset_coordinates(
         xfact=0.8,
         yfact=0.8,
         origin='center')
-    coordinates_offset = list(s_scaled.coords)
+    coordinates_offset = list(s_scaled.coords)[::-1]  # Reverse back the coordinates.
     return coordinates_offset
+
 
 def plot_area(
         segments: list):
@@ -45,13 +47,13 @@ def plot_area(
     y_min = min([p[1] for p in points])
     y_max = max([p[1] for p in points])
     
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+    fig, ax = plt.subplots(1, 1, figsize=ug.FIGURE_SIZE)
     for s in segments:
         # x, y = zip(*s['coordinates'])
         # print(s)
         s_coordinates = get_offset_coordinates(s)
         x, y = zip(*s_coordinates)
-        plt.plot(x, y, c='gray')
+        plt.plot(x, y, c='gray', linewidth=3)
     plt.xticks(np.arange(x_min, x_max + 1.0, 1), fontsize=14)
     plt.yticks(np.arange(y_min, y_max + 1.0, 1), fontsize=14)
     ax.set_xlim(x_min - 1, x_max + 1)

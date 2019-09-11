@@ -25,3 +25,13 @@ random_city = get_random_city(
 # 8 right turns
 # 8 left turns
 # 14 u-turns
+
+# Test for rejoining the split edges.
+random_city = get_random_city(
+    city_size = [3, 1],
+    frequencies = [0, 0, 0, 1],
+    )
+# OUTPUT
+# 8 right turns
+# 8 left turns
+# 14 u-turns
