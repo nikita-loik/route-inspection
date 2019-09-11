@@ -2,3 +2,4 @@ venv/
 utilities/__pycache__/
 .ipynb_checknodes/
 .vscode/
+.ipynb_checkpoints/*
