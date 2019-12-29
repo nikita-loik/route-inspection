@@ -21,25 +21,45 @@ logger = logging.getLogger(__name__)
 
 # VISUALISE RANDOM CITY =======================================================
 def get_offset_coordinates(
-        segment: dict) -> list:
+        segment: dict,
+        offset: int = .1) -> list:
+    '''
+    INPUT
+    segment (dict)
+        ...
+        coordinates start and end point of a segment (list of tuples)
+        ...
+    offset  value by which to offset the segment (int)
+    ------------
+    OUTPUT
+    offset coordinates (list of tuples)
+    '''
     s_linestring = sh.geometry.LineString(
         segment['coordinates'])
-    # NB! Parallel_offset reverses the coordinates.
+    # NB! parallel_offset reverses the coordinates.
     s_offset = s_linestring.parallel_offset(
-        distance=.1,
+        distance=offset,
         side='right')
+    scaling_factor = 1 - 2 * offset
     s_scaled = sh.affinity.scale(
         s_offset,
-        xfact=0.8,
-        yfact=0.8,
+        xfact=scaling_factor,
+        yfact=scaling_factor,
         origin='center')
-    coordinates_offset = list(s_scaled.coords)[::-1]  # Reverse back the coordinates.
+    # Reverse back the coordinates.
+    coordinates_offset = list(s_scaled.coords)[::-1]
     return coordinates_offset
 
 
 def plot_area(
         segments: list):
-
+    '''
+    INPUT
+    segments (list of tuples)
+    ------------
+    OUTPUT
+    plots the area, no output is produced
+    '''
     points = list(set([p for s in segments for p in s['coordinates']]))
 
     x_min = min([p[0] for p in points])
@@ -83,15 +103,21 @@ def get_area_statistics(
         f"\t{n_two_way_segments} two-way")
 
 
-
 # GET RANDOM CITY =============================================================
 def get_random_direction(
-        frequencies: list = ug.FREQUENCIES):
-    # directions:
-    # 0 — no_way
-    # 1 — one_way_direct
-    # 2 — one_way_reverse
-    # 3 — two_way
+        frequencies: list = ug.FREQUENCIES) -> int:
+    '''
+    INPUT
+    frequencies no_way, one_way_direct, one_way_reverse, two_way (tuple)
+    ------------
+    OUTPUT
+    direction (int)
+        0 — no_way
+        1 — one_way_direct
+        2 — one_way_reverse
+        3 — two_way
+    '''
+
     direction = random.choices(
         [0, 1, 2, 3],
         weights=frequencies,
@@ -103,8 +129,22 @@ def get_segments(
         coordinates: list,
         city_size: tuple = ug.CITY_SIZE,
         frequencies: list = ug.FREQUENCIES,
-        ):
-
+        ) -> tuple:
+    '''
+    INPUT
+    segment_id  unique id (int)
+    coordinates start and end point of a segment (list of tuples)
+    city_size   west-to-east & south-to-north sizes (tuple)
+    frequencies no_way, one_way_direct, one_way_reverse, two_way (tuple)
+    ------------
+    OUTPUT
+    0, 1, or 2 segments
+    direction (int)
+        0 — no_way
+        1 — one_way_direct
+        2 — one_way_reverse
+        3 — two_way
+    '''
     direction = get_random_direction(frequencies)
 
     if ((direction == 0)
@@ -166,8 +206,24 @@ def get_segments(
 
 def get_random_city(
         city_size: tuple = ug.CITY_SIZE,
-        frequencies: list = ug.FREQUENCIES,
+        frequencies: tuple = ug.FREQUENCIES,
         ) -> list:
+    '''
+    INPUT
+    city_size   west-to-east & south-to-north sizes (tuple)
+    frequencies no_way, one_way_direct, one_way_reverse, two_way (tuple)
+    ------------
+    OUTPUT
+    city    segments data (list of dicts)
+        segment_id  unique id (int)
+        direction (int)
+            0 — no_way
+            1 — one_way_direct
+            2 — one_way_reverse
+            3 — two_way
+        coordinates start and end point of a segment (list of tuples)
+        geometry    (shapely linestring)
+    '''
     city = []
     segment_id = 1
     for i in range(city_size[0]):
@@ -193,18 +249,6 @@ def get_random_city(
             segment_id += 1
     get_area_statistics(city)
     return city
-
-
-def get_points_dictionary(
-        segments: list
-        ):
-    points_coordinates = {}
-    sorted_points_coordinates = sorted(
-        list(set([n for e in segments for n in e['coordinates']])))
-    for n in sorted_points_coordinates:
-        points_coordinates[n] = sorted_points_coordinates.index(n)
-    return points_coordinates
-
 
 # def delete_disconnected_segments(
 #         segments: list):
@@ -233,8 +277,16 @@ def get_points_dictionary(
 
 # GET RANDOM DISTRICT =========================================================
 def get_random_district_bbox(
-    city_size: tuple = ug.CITY_SIZE,
-    district_size: tuple = ug.DISTRICT_SIZE):
+        city_size: tuple = ug.CITY_SIZE,
+        district_size: tuple = ug.DISTRICT_SIZE):
+    '''
+    INPUT
+    city_size   west-to-east & south-to-north sizes (tuple)
+    district_size west-to-east & south-to-north sizes (tuple)
+    ------------
+    OUTPUT
+    bbox    south-west & north-east coordinates (list of tuples)
+    '''
     # western border - x_min
     x_min = random.randint(0, city_size[0]-district_size[0])
     # eastern border - x_max
@@ -251,6 +303,14 @@ def check_point_within_bbox(
         point: tuple,
         bbox: list,
         ):
+    '''
+    INPUT
+    point   coordinates (tuple)
+    bbox    south-west & north-east coordinates (list of tuples)
+    ------------
+    OUTPUT
+    whether point is within bbox (bool)
+    '''
     [(x_min, y_min), (x_max, y_max)] = bbox
     if ((x_min <= point[0] <= x_max)
         and (y_min <= point[1] <= y_max)):
@@ -262,7 +322,17 @@ def check_segment_within_district(
         segment: dict,
         district_bbox: list,
         ):
-
+    '''
+    INPUT
+    segment (dict)
+        ...
+        coordinates start and end point of a segment (list of tuples)
+        ...         
+    district_bbox   south-west & north-east coordinates (list of tuples)
+    ------------
+    OUTPUT
+    whether segment is within bbox (bool)
+    '''
     if ((check_point_within_bbox(
         segment['coordinates'][0], district_bbox) is True)
         and (check_point_within_bbox(
@@ -276,7 +346,32 @@ def get_random_district(
         city: list,
         city_size: tuple = ug.CITY_SIZE,
         district_size: tuple = ug.DISTRICT_SIZE,
-        ):
+        ) -> list:
+    '''
+    INPUT
+    city    segments data (list of dicts)
+        segment_id  unique id (int)
+        direction (int)
+            0 — no_way
+            1 — one_way_direct
+            2 — one_way_reverse
+            3 — two_way
+        coordinates start and end point of a segment (list of tuples)
+        geometry    (shapely linestring)
+    city_size   west-to-east & south-to-north sizes (tuple)
+    district_size   west-to-east & south-to-north sizes (tuple)     
+    ------------
+    OUTPUT
+    district    subset of a city, segments data (list of dicts)
+        segment_id  unique id (int)
+        direction (int)
+            0 — no_way
+            1 — one_way_direct
+            2 — one_way_reverse
+            3 — two_way
+        coordinates start and end point of a segment (list of tuples)
+        geometry    (shapely linestring)
+    '''
     district_bbox = get_random_district_bbox(city_size, district_size)
     logger.info(f"district borders: {district_bbox}")
     random_district = []
