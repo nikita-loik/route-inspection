@@ -34,6 +34,8 @@ def get_offset_coordinates(
     OUTPUT
     offset coordinates (list of tuples)
     '''
+    # print(segment)
+
     s_linestring = sh.geometry.LineString(
         segment['coordinates'])
     # NB! parallel_offset reverses the coordinates.
@@ -69,8 +71,6 @@ def plot_area(
     
     fig, ax = plt.subplots(1, 1, figsize=ug.FIGURE_SIZE)
     for s in segments:
-        # x, y = zip(*s['coordinates'])
-        # print(s)
         s_coordinates = get_offset_coordinates(s)
         x, y = zip(*s_coordinates)
         plt.plot(x, y, c='gray', linewidth=3)
@@ -357,7 +357,7 @@ def get_random_district(
             2 — one_way_reverse
             3 — two_way
         coordinates start and end point of a segment (list of tuples)
-        geometry    (shapely linestring)
+        geometry    segment geometry (shapely linestring)
     city_size   west-to-east & south-to-north sizes (tuple)
     district_size   west-to-east & south-to-north sizes (tuple)     
     ------------

@@ -2,13 +2,10 @@ import numpy as np
 
 # RANDOM CITY PARAMETERS =======================================================
 CITY_SIZE = (24, 16)
-DISTRICT_SIZE = (12, 8)
-# FREQUENCIES = {
-# 'no_way': .2,
-# 'one_way_direct': .15,
-# 'one_way_reverse': .15,
-# 'two_way': .5}
-FREQUENCIES = [0.2, 0.15, 0.15, 0.5]
+DISTRICT_SIZE = (.5, .5)
+
+# FREQUENCIES (no_way, one_way_direct, one_way_reverse, two_way)
+FREQUENCIES = (.2, .15, .15, .5)
 
 # ROUTE PARAMETERS =============================================================
 

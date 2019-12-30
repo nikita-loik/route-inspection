@@ -30,30 +30,49 @@ def condence_nodes(
 #     https://gist.github.com/Zulko/7629206
     
     g.add_node(new_node, coordinates=coordinates) # add condensation node
+    # print(coordinates)
     
     g_edges = list(g.edges(data=True))
-    for tail_n, head_n, data in g_edges:
+    for tail, head, data in g_edges:
+        # print(tail, head, data)
         # For all edges related to one of the nodes to condence,
         # make an edge going to or coming from the `new gene`.
-        if tail_n in nodes_to_condence:
-            g.add_edge(new_node, head_n, manoeuvre='quasi_manoeuvre')
-        elif head_n in nodes_to_condence:
-            g.add_edge(tail_n, new_node, manoeuvre='quasi_manoeuvre')
+        # print(data)
+        # {'weight': 0,
+        # 'edge_id': 1,
+        # 'geometry': <shapely.geometry.linestring.LineString object at 0x10f090a10>,
+        # 'coordinates': [(0, 0), (1, 0)],
+        # 'manoeuvre': 'go_straight'}
+        if tail in nodes_to_condence:
+            g.add_edge(
+                new_node,
+                head,
+                coordinates=[coordinates, data['coordinates'][1]],
+                manoeuvre='quasi_manoeuvre',
+                type='segment')
+        elif head in nodes_to_condence:
+            g.add_edge(
+                tail,
+                new_node,
+                coordinates=[data['coordinates'][0], coordinates],
+                manoeuvre='quasi_manoeuvre',
+                type='segment')
     
-    for n in nodes_to_condence: # Remove the condenced nodes
+    for n in nodes_to_condence: # Remove the condensed nodes
         g.remove_node(n)
+    return g
 
 
 # add grafts to graph =========================================================
 def get_grafting_nodes_and_edges(
     g: nx.DiGraph,
     super_g: nx.DiGraph,
-    condenced_g: nx.DiGraph,
+    condensed_g: nx.DiGraph,
     source_node: str = None,
     target_node: str = None):
     
     nodes_to_add = nx.shortest_path(
-        condenced_g,
+        condensed_g,
         source_node,
         target_node)[1:-1]
     edges_to_add = [(nodes_to_add[i], nodes_to_add[i+1])
@@ -61,22 +80,13 @@ def get_grafting_nodes_and_edges(
 
     for tail, head in super_g.in_edges(nodes_to_add[0]):
         if tail in g.nodes:
-            edges_to_add.append((tail,head))
+            edges_to_add.append((tail, head))
             nodes_to_add.append(head)
-        # else:
-        #     logger.info("01 wrong tail")
 
     for tail, head in super_g.in_edges(nodes_to_add[-1]):
         if head in g.nodes:
-            edges_to_add.append((tail,head))
+            edges_to_add.append((tail, head))
             nodes_to_add.append(tail)
-        # else:
-        #     logger.info("02 wrong head")
-
-    # logger.info(
-    #     f"nodes to add: {nodes_to_add}\n"
-    #     f"edges to add: {edges_to_add}"
-    #     )
 
     return {'nodes_to_add': nodes_to_add,
             'edges_to_add': edges_to_add}
@@ -86,13 +96,14 @@ def add_connecting_grafts(
     g: nx.DiGraph,
     super_g: nx.DiGraph):
 
+    # Get strongly connected components.
     g_scc = sorted(
         list(nx.strongly_connected_components(g)),
         key=len,
         reverse=True)
-    condenced_g = super_g.copy()
-    
-    # select two biggest strongly connected components (scc)
+    [print(len(c)) for c in g_scc]
+    condensed_g = super_g.copy()
+    # Select two biggest strongly connected components (scc).
     for i, scc in enumerate(g_scc[:2]):
         scc_coordinates = list(
             zip(*[super_g.nodes(data=True)[n]['coordinates']
@@ -100,26 +111,26 @@ def add_connecting_grafts(
         condensation_coordinates = tuple(
             [np.mean(c)
             for c in scc_coordinates])
-        condence_nodes(
-            condenced_g,
+        condensed_g = condence_nodes(
+            condensed_g,
             scc,
-            # 'condensation_node',
             i,
             condensation_coordinates)
-    # vg.visualise_manoeuvre_graph(condenced_g)
+        # print(condensed_g.nodes())
+    # vg.visualise_manoeuvre_graph(condensed_g)
     nodes_to_add = []
     edges_to_add = []
-    for n in get_grafting_nodes_and_edges(
-        g, super_g, condenced_g, 0, 1)['nodes_to_add']:
+    grafting_n_e_0_to_1 = get_grafting_nodes_and_edges(
+        g, super_g, condensed_g, 0, 1)
+    for n in grafting_n_e_0_to_1['nodes_to_add']:
         nodes_to_add.append(n)
-    for e in get_grafting_nodes_and_edges(
-        g, super_g, condenced_g, 0, 1)['edges_to_add']:
+    for e in grafting_n_e_0_to_1['edges_to_add']:
         edges_to_add.append(e)
-    for n in get_grafting_nodes_and_edges(
-        g, super_g, condenced_g, 1, 0)['nodes_to_add']:
+    grafting_n_e_1_to_0 = get_grafting_nodes_and_edges(
+        g, super_g, condensed_g, 1, 0)
+    for n in grafting_n_e_1_to_0['nodes_to_add']:
         nodes_to_add.append(n)
-    for e in get_grafting_nodes_and_edges(
-        g, super_g, condenced_g, 1, 0)['edges_to_add']:
+    for e in grafting_n_e_1_to_0['edges_to_add']:
         edges_to_add.append(e)
 
     # logger.info(
@@ -135,12 +146,13 @@ def add_connecting_grafts(
                 weight=edge_data['weight'],
                 geometry=edge_data['geometry'],
                 coordinates=edge_data['coordinates'],
-                manoeuvre=edge_data['manoeuvre'])
+                manoeuvre=edge_data['manoeuvre'],
+                type=edge_data['type'])
     nodes_coordinates = nx.get_node_attributes(super_g, 'coordinates')
     for n in nodes_to_add:
         working_g.node[n]['coordinates'] = nodes_coordinates[n]
 
-    # ugly way to remove disconnected nodes;
+    # an ugly way to remove disconnected nodes;
     # in fact, they should not be included into the graph from the very start.
     # connected_nodes = sorted(
     #     nx.strongly_connected_components(working_g),
@@ -152,6 +164,20 @@ def add_connecting_grafts(
     #         disconnected_nodes.append(n)
     # working_g.remove_nodes_from(disconnected_nodes)
 
+    return working_g
+
+
+def remove_single_nodes(
+        g: nx.DiGraph
+        ):
+    working_g = g.copy()
+    g_scc = sorted(
+        list(nx.strongly_connected_components(g)),
+        key=len,
+        reverse=True)
+    for c in g_scc:
+        if len(c) == 1:
+            working_g.remove_nodes_from(c)
     return working_g
 
 
@@ -181,25 +207,57 @@ def join_two_linestrings(
         return sh.geometry.LineString(new_coords)
 
 
+def is_joinable(
+        g: nx.DiGraph,
+        n: str) -> bool:
+
+    adjacent_edge_tail = [
+        e for e in g.out_edges(n)
+        if g.get_edge_data(*e)['manoeuvre'] == 'go_straight'][0][1]
+    in_edges = g.in_edges(adjacent_edge_tail)
+    ways_in = [
+        g.get_edge_data(*e)['manoeuvre']
+        for e in in_edges]
+    # Check whether 'turn_right' or 'turn_left' are possible ways_in.
+    if 'turn_right' in ways_in or 'turn_left' in ways_in:
+        return False
+    else:
+        return True
+
+
 def get_splitting_nodes(
         g: nx.DiGraph
         ):
+    '''
+    INPUT
+    NetworkX directed graph (nx.classes.digraph.DiGraph).
+    ------------
+    OUTPUT
+    list of splitting nodes (i.e. nodes, in-comming and out-going edges which
+    can be reconnected, thus simplifying the graph)
+    '''
     splitting_nodes = []
-    # for n in g.nodes():
-    #     if ((len(g.in_edges(n))==1)
-    #         and (len(g.out_edges(n))==1)):
-    #         edge_i = g.get_edge_data(*list(g.in_edges(n))[0])
-    #         edge_j = g.get_edge_data(*list(g.out_edges(n))[0])
-    #         if uc.get_manoeuvre(
-    #             edge_i, edge_j) == 'go_straight':
-    #             splitting_nodes.append(n)
     for n in g.nodes():
-        if ((len(g.in_edges(n))==1)
-            and (len(g.out_edges(n))==1)):
-            segment_i = g.get_edge_data(*list(g.in_edges(n))[0])
-            segment_j = g.get_edge_data(*list(g.out_edges(n))[0])
-            if ((segment_i['manoeuvre'] == 'go_straight')
-                and (segment_j['manoeuvre'] == 'go_straight')):
+        if g.out_degree[n] == 1:
+            out_edge = list(g.out_edges(n))[0]
+            escape = g.get_edge_data(*out_edge)['manoeuvre']
+            escape_coordinates = g.get_edge_data(*out_edge)['coordinates']
+            # Check whether it is a manoeuvre edge and whether it reads 'go_straight'.
+            if (
+                len(escape_coordinates) == 1 and
+                escape == 'go_straight' and
+                is_joinable(g, n)):
+                splitting_nodes.append(n)
+        if g.out_degree[n] == 2:
+            out_edges = g.out_edges(n)
+            ways_out = [
+                g.get_edge_data(*e)['manoeuvre']
+                for e in out_edges]
+            # Check whether 'go_straight' and 'make_u_turn' are the only two ways_out.
+            if (
+                'go_straight' in ways_out and
+                'make_u_turn' in ways_out and
+                is_joinable(g, n)):
                 splitting_nodes.append(n)
     return splitting_nodes
 
@@ -207,55 +265,47 @@ def join_split_edges(
         g: nx.DiGraph
         ):
     splitting_nodes = get_splitting_nodes(g)
+    n_nodes_to_remove = len(splitting_nodes)
     while len(splitting_nodes) > 0:
         g = join_edges(g, splitting_nodes)
-    logger.info(f"removed {len(splitting_nodes)} nodes")
+        splitting_nodes = get_splitting_nodes(g)
+    logger.info(f"\tremoved {n_nodes_to_remove} nodes")
     return g
-
-
-# def get_combined_geometry_and_direction(e_a_data, e_b_data):
-#     if (e_a_data['direction'] == 3 and e_b_data['direction'] != 3):
-#         combined_geometry = join_two_linestrings(
-#             e_b_data['geometry'],
-#             e_a_data['geometry'])
-#         return {'geometry': combined_geometry,
-#                 'direction': e_b_data['direction']}
-#     else:
-#         combined_geometry = join_two_linestrings(
-#             e_a_data['geometry'],
-#             e_b_data['geometry'])
-#         return {'geometry': combined_geometry,
-#                 'direction': e_a_data['direction']}
 
 
 def join_edges(
         g: nx.DiGraph,
         splitting_nodes: list,
         ):
-    print(splitting_nodes)
+    working_g = g.copy()
     for n in splitting_nodes:
-        edge_i = g.get_edge_data(*list(g.in_edges(n))[0])
-        edge_j = g.get_edge_data(*list(g.out_edges(n))[0])
+        edge_in = list(g.in_edges(n))[0]
+        edge_in_data = g.get_edge_data(*edge_in)
+        go_straight_manoeuvre = [
+            e for e in g.out_edges(n)
+            if g.get_edge_data(*e)['manoeuvre'] == 'go_straight'][0]
+        edge_out = [
+            e for e in g.out_edges(go_straight_manoeuvre[1])
+            if g.get_edge_data(*e)['manoeuvre'] == 'go_straight'][0]
+        edge_out_data = g.get_edge_data(*edge_out)
         combined_geometry = join_two_linestrings(
-            edge_i['geometry'],
-            edge_j['geometry'])
+            edge_in_data['geometry'],
+            edge_out_data['geometry'])
         combined_coordinates = [
-            edge_i['coordinates'][0],
-            edge_j['coordinates'][1]]
-        tail = list(g.in_edges(n))[0][0]
-        head = list(g.in_edges(n))[0][1]
-        # tail = list(g.neighbors(n))[0]
-        # head = list(g.neighbors(n))[1]
-        working_g = g.copy()
+            edge_in_data['coordinates'][0],
+            edge_out_data['coordinates'][1]]
+        tail = edge_in[0]
+        head = edge_out[1]
         working_g.add_edge(
             tail,
             head,
             weight=combined_geometry.length,
-            edge_id=str(edge_i['edge_id']),
+            edge_id=str(edge_in_data['edge_id']),
             geometry=combined_geometry,
-            coordinates=combined_coordinates
+            manoeuvre='go_straight',
+            coordinates=combined_coordinates,
+            type='segment',
             )
-        working_g.remove_node(n) 
-        return working_g
-    else:
-        return g
+        working_g.remove_node(edge_in[1])
+        working_g.remove_node(edge_out[0])
+    return working_g
