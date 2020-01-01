@@ -1,4 +1,4 @@
-venv/
+venv_city_simulation/
 utilities/__pycache__/
 .ipynb_checknodes/
 .vscode/
