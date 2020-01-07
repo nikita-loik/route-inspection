@@ -34,8 +34,8 @@ def get_offset_coordinates(
     OUTPUT
     offset coordinates (list of tuples)
     '''
-    # print(segment)
-
+    # NB! parallel_offset does not work with segments,
+    # which are essentially a single point (e.g. [(0, 0), (0, 0)]).
     s_linestring = sh.geometry.LineString(
         segment['coordinates'])
     # NB! parallel_offset reverses the coordinates.

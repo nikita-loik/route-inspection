@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 # PLOTTING FUNCTIONS ==========================================================
 def plot_arrow(
-    coordinates: list):
+    coordinates: list,
+    color: str = 'gray'):
     x, y = coordinates[0]
     x_end, y_end = coordinates[1]
     dx = x_end - x
@@ -29,11 +30,11 @@ def plot_arrow(
         dx=dx, dy=dy,
         length_includes_head=True,
         shape='left',
-        head_width=0.13,
-        head_length=0.13,
-        facecolor='gray',
-        edgecolor='gray',
-        width=0.07)
+        head_width=.13,
+        head_length=.13,
+        facecolor=color,
+        edgecolor=color,
+        width=.07)
 
 
 # A. visualise naive graph ====================================================
@@ -242,53 +243,67 @@ def get_manoeuvre_graph_statistics(
 
 # C. visualise inverted graph =================================================
 def visualise_inverted_graph(
-        g: nx.DiGraph):
-    nodes_coordinates = nx.get_node_attributes(g, 'coordinates')
-    # print(nodes_coordinates)
-    x_min = min([nc[0] for nc in nodes_coordinates.values()])
-    x_max = max([nc[0] for nc in nodes_coordinates.values()])
-    y_min = min([nc[1] for nc in nodes_coordinates.values()])
-    y_max = max([nc[1] for nc in nodes_coordinates.values()])
-    
-    g_statistics = get_manoeuvre_graph_statistics(g)
-    dead_ends = g_statistics['dead_ends']
-    disconnected_nodes = g_statistics['disconnected_nodes']
-    
+        inverted_g: nx.DiGraph,
+        manoeuvre_g: nx.DiGraph
+        ):
+
     fig, ax = plt.subplots(1, 1, figsize=ug.FIGURE_SIZE)
-    for e in g.edges:
+
+    # Plot inverted graph.
+    nodes_coordinates_inverted_g = nx.get_node_attributes(
+        inverted_g,
+        'coordinates')
+    statistics_inverted_g = get_manoeuvre_graph_statistics(inverted_g)
+    dead_ends_inverted_g = statistics_inverted_g['dead_ends']
+    disconnected_nodes_inverted_g = statistics_inverted_g['disconnected_nodes']
+    for e in inverted_g.edges:
         try:
-            e_data = g.get_edge_data(*e)
-        #     # print(e_data)
-        #     if e_data['type'] == 'segment':
-        #         offset_coordinates = grc.get_offset_coordinates(e_data)
-        #         # print(offset_coordinates)
-            plot_arrow(e_data['coordinates'])
+            e_data = inverted_g.get_edge_data(*e)
+            plot_arrow(e_data['coordinates_offset'], color='red')
         except ValueError:
             pass
-    for n in dead_ends:
+    for n in dead_ends_inverted_g:
         plt.scatter(
-            nodes_coordinates[n][0],
-            nodes_coordinates[n][1],
+            nodes_coordinates_inverted_g[n][0],
+            nodes_coordinates_inverted_g[n][1],
             s=500,
             c="grey",
             alpha=0.3)
-    for n in disconnected_nodes:
+    for n in disconnected_nodes_inverted_g:
         plt.scatter(n[0], n[1], s=500, c="red", alpha=0.3)
-    # Label nodes.
-    # for n in g.nodes():
-    #     x_coordinate = nodes_coordinates[n][0] + 0.1
-    #     if n.endswith('t'):
-    #         y_coordinate = nodes_coordinates[n][1] - 0.1
-    #     else:
-    #         y_coordinate = nodes_coordinates[n][1] + 0.1
-    #     plt.text(
-    #         x_coordinate,
-    #         y_coordinate,
-    #         n,
-    #         color='r',
-    #         # size=10,
-    #         )
-    # plt.axis('off')
+
+    # Plot manoeuvre graph.
+    nodes_coordinates_manoeuvre_g = nx.get_node_attributes(
+        manoeuvre_g,
+        'coordinates')
+    statistics_manoeuvre_g= get_manoeuvre_graph_statistics(manoeuvre_g)
+    dead_ends_manoeuvre_g = statistics_manoeuvre_g['dead_ends']
+    disconnected_nodes_manoeuvre_g = statistics_manoeuvre_g['disconnected_nodes']
+    
+    for e in manoeuvre_g.edges:
+        try:
+            e_data = manoeuvre_g.get_edge_data(*e)
+            if e_data['type'] == 'segment':
+                offset_coordinates = grc.get_offset_coordinates(e_data)
+                plot_arrow(offset_coordinates)
+        except ValueError:
+            pass
+    for n in dead_ends_manoeuvre_g:
+        plt.scatter(
+            nodes_coordinates_manoeuvre_g[n][0],
+            nodes_coordinates_manoeuvre_g[n][1],
+            s=500,
+            c="grey",
+            alpha=0.3)
+    for n in disconnected_nodes_manoeuvre_g:
+        plt.scatter(n[0], n[1], s=500, c="red", alpha=0.3)
+
+    # Set plot parameters.
+    x_min = min([nc[0] for nc in nodes_coordinates_inverted_g.values()])
+    x_max = max([nc[0] for nc in nodes_coordinates_inverted_g.values()])
+    y_min = min([nc[1] for nc in nodes_coordinates_inverted_g.values()])
+    y_max = max([nc[1] for nc in nodes_coordinates_inverted_g.values()])
+
     plt.xticks(np.arange(x_min, x_max + 1, 1), fontsize=14)
     plt.yticks(np.arange(y_min, y_max + 1, 1), fontsize=14)
     ax.set_xlim(x_min - 1, x_max + 1)

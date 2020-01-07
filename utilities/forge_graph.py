@@ -30,7 +30,6 @@ def condence_nodes(
 #     https://gist.github.com/Zulko/7629206
     
     g.add_node(new_node, coordinates=coordinates) # add condensation node
-    # print(coordinates)
     
     g_edges = list(g.edges(data=True))
     for tail, head, data in g_edges:
@@ -101,7 +100,6 @@ def add_connecting_grafts(
         list(nx.strongly_connected_components(g)),
         key=len,
         reverse=True)
-    [print(len(c)) for c in g_scc]
     condensed_g = super_g.copy()
     # Select two biggest strongly connected components (scc).
     for i, scc in enumerate(g_scc[:2]):
@@ -150,7 +148,9 @@ def add_connecting_grafts(
                 type=edge_data['type'])
     nodes_coordinates = nx.get_node_attributes(super_g, 'coordinates')
     for n in nodes_to_add:
-        working_g.node[n]['coordinates'] = nodes_coordinates[n]
+        nx.set_node_attributes(
+            working_g,
+            {'coordinates': nodes_coordinates[n]})
 
     # an ugly way to remove disconnected nodes;
     # in fact, they should not be included into the graph from the very start.
@@ -188,7 +188,7 @@ def join_two_linestrings(
         ):
     '''
     Takes two linestrings.
-    NB! asumes linestring_i has correct geometry,
+    NB! assumes linestring_i has correct geometry,
     therefore linestring_i geometry is never inverted
     '''
     coords_i = list(linestring_i.coords)
@@ -279,15 +279,15 @@ def join_edges(
         ):
     working_g = g.copy()
     for n in splitting_nodes:
-        edge_in = list(g.in_edges(n))[0]
-        edge_in_data = g.get_edge_data(*edge_in)
+        edge_in = list(working_g.in_edges(n))[0]
+        edge_in_data = working_g.get_edge_data(*edge_in)
         go_straight_manoeuvre = [
-            e for e in g.out_edges(n)
-            if g.get_edge_data(*e)['manoeuvre'] == 'go_straight'][0]
+            e for e in working_g.out_edges(n)
+            if working_g.get_edge_data(*e)['manoeuvre'] == 'go_straight'][0]
         edge_out = [
-            e for e in g.out_edges(go_straight_manoeuvre[1])
-            if g.get_edge_data(*e)['manoeuvre'] == 'go_straight'][0]
-        edge_out_data = g.get_edge_data(*edge_out)
+            e for e in working_g.out_edges(go_straight_manoeuvre[1])
+            if working_g.get_edge_data(*e)['manoeuvre'] == 'go_straight'][0]
+        edge_out_data = working_g.get_edge_data(*edge_out)
         combined_geometry = join_two_linestrings(
             edge_in_data['geometry'],
             edge_out_data['geometry'])
@@ -298,7 +298,7 @@ def join_edges(
         head = edge_out[1]
         working_g.add_edge(
             tail,
-            head,
+            head, 
             weight=combined_geometry.length,
             edge_id=str(edge_in_data['edge_id']),
             geometry=combined_geometry,
@@ -309,3 +309,110 @@ def join_edges(
         working_g.remove_node(edge_in[1])
         working_g.remove_node(edge_out[0])
     return working_g
+
+# PRUNE GRAPH =================================================================
+def prune_u_turns(
+        g: nx.DiGraph):
+    edges = list(g.edges())
+    for e in edges:
+        manoeuvre = g.get_edge_data(*e)['manoeuvre']
+        if manoeuvre == 'make_u_turn':
+            test_g = g.copy()
+            test_g.remove_edge(*e)
+            if nx.is_strongly_connected(test_g):
+                g.remove_edge(*e)
+    return g
+                
+def prune_left_turns(
+        g: nx.DiGraph):
+    edges = list(g.edges())
+    for e in edges:
+        manoeuvre = g.get_edge_data(*e)['manoeuvre']
+        if manoeuvre == 'turn_left':
+            test_g = g.copy()
+            test_g.remove_edge(*e)
+            if nx.is_strongly_connected(test_g):
+                g.remove_edge(*e)
+    return g
+
+
+# BALLANCE NODES ==============================================================
+def get_imbalanced_nodes(
+        g: nx.DiGraph):
+    '''
+    INPUT
+    directed graph
+    OUTPUT
+    dict
+    excess_ins      nodes with more in-coming than out-going edges (list)
+    excess_outs     nodes with more out-going than in-coming edges (list)
+    '''
+    excess_ins = []
+    excess_outs = []
+    for n in g.nodes():
+        in_degree = g.in_degree(n)
+        out_degree = g.out_degree(n)
+        if in_degree > out_degree:
+            excess_ins.append(n)
+        if in_degree < out_degree:
+            excess_outs.append(n)
+    logger.info(
+        f"\tnodes # {len(g.nodes())}\n"
+        f"\tedges # {len(g.edges())}\n"
+        f"\tIMBALANCED NODES:\n"
+        f"\texcess ins # {len(excess_ins)}\n"
+        # f"\t{excess_ins}\n"
+        f"\texcess outs # {len(excess_outs)}\n"
+        # f"\t{excess_outs}\n"
+    )
+    return {
+        'excess_ins': excess_ins,
+        'excess_outs': excess_outs}
+
+
+def get_virtual_edges(
+        g: nx.DiGraph,
+        ):
+    imbalanced_nodes = get_imbalanced_nodes(g)
+    excess_ins = imbalanced_nodes['excess_ins']
+    excess_outs = imbalanced_nodes['excess_outs']
+    virtual_edges = []
+    for n in excess_ins:
+        shortest_path = len(g.edges())
+        nearest_node = None
+        for m in excess_outs:
+            path = nx.shortest_path_length(
+                g,
+                source=n,
+                target=m)
+            if (
+                path < shortest_path and
+                (n, m) not in g.edges()):
+                shortest_path = path
+                nearest_node = m
+        if nearest_node is None:
+            break
+        else:
+            virtual_edges.append((n, nearest_node))
+            excess_outs.remove(nearest_node)
+    logger.info(
+        f"\tvirtual edges # {len(virtual_edges)}\n")
+    return virtual_edges
+
+
+def balance_graph_iteratively(
+        g: nx.DiGraph):
+
+    virtual_g = g.copy()
+    n_cycles = 0
+    n_edges_added = 0
+    while nx.is_eulerian(virtual_g) is False:
+        n_cycles += 1
+        virtual_edges = get_virtual_edges(virtual_g)
+        n_edges_added += len(virtual_edges)
+        virtual_g.add_edges_from(
+            virtual_edges,
+            type='virtual_edge')
+    logger.info(
+        f"\tadded {n_edges_added} edges over {n_cycles} cycles\n")
+    return virtual_g

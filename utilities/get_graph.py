@@ -77,8 +77,11 @@ def get_naive_graph(
             geometry=e['geometry'],
             coordinates=e['coordinates']
             )
-        g.node[head]['coordinates'] = e['coordinates'][1]
-        g.node[tail]['coordinates'] = e['coordinates'][0]
+        attributes = {
+            head: {'coordinates': head}, 
+            tail: {'coordinates': tail},
+            }
+        nx.set_node_attributes(g, attributes)
 
     connected_nodes = sorted(
         nx.strongly_connected_components(g),
@@ -152,36 +155,39 @@ def get_manoeuvre_graph(
     # for p in sorted_nodes:
     #     nodes[p] = sorted_nodes.index(p)
     
-    for edge in edges:
-        tail = str(edge['segment_id']) + '_t'
-        head = str(edge['segment_id']) + '_h'
-        # tail = nodes[edge['coordinates'][0]]
-        # head = nodes[edge['coordinates'][1]]
+    for e in edges:
+        tail = str(e['segment_id']) + '_t'
+        head = str(e['segment_id']) + '_h'
+        # tail = nodes[e['coordinates'][0]]
+        # head = nodes[e['coordinates'][1]]
         
         g.add_edge(
             tail,
             head,
             weight=0,
-            edge_id=edge['segment_id'],
-            geometry=edge['geometry'],
-            coordinates=edge['coordinates'],
+            edge_id=e['segment_id'],
+            geometry=e['geometry'],
+            coordinates=e['coordinates'],
             manoeuvre='go_straight',
             type='segment'
             )
-        g.node[head]['coordinates'] = edge['coordinates'][1]
-        g.node[tail]['coordinates'] = edge['coordinates'][0]
+        attributes = {
+            head: {'coordinates': e['coordinates'][1]}, 
+            tail: {'coordinates': e['coordinates'][0]},
+            }
+        nx.set_node_attributes(g, attributes)
     
-    for edge_in in edges:
-        for edge_out in edges:
-            edge_data = get_manoeuvre_data(edge_in, edge_out)
-            if edge_data is not None:
+    for e_in in edges:
+        for e_out in edges:
+            e_data = get_manoeuvre_data(e_in, e_out)
+            if e_data is not None:
                 g.add_edge(
-                    edge_data['tail'],
-                    edge_data['head'],
-                    weight=edge_data['weight'],
-                    geometry=edge_data['geometry'],
-                    coordinates=edge_data['coordinates'],
-                    manoeuvre=edge_data['manoeuvre'],
+                    e_data['tail'],
+                    e_data['head'],
+                    weight=e_data['weight'],
+                    geometry=e_data['geometry'],
+                    coordinates=e_data['coordinates'],
+                    manoeuvre=e_data['manoeuvre'],
                     type='manoeuvre')
 
     connected_nodes = sorted(
@@ -270,14 +276,23 @@ def get_inverted_edge(
         edge_j: dict):
     if edge_i['coordinates'][1] == edge_j['coordinates'][0]:
         manoeuvre = uc.get_manoeuvre(edge_i, edge_j)
-        coordinates = [tuple([tail + (head - tail) / 2
+        coordinates = [
+            tuple([tail + (head - tail) / 2
             for tail, head in zip(*edge_i['coordinates'])]),
             tuple([tail + (head - tail) / 2
             for tail, head in zip(*edge_j['coordinates'])])]
+        offset_i = grc.get_offset_coordinates(edge_i)
+        offset_j = grc.get_offset_coordinates(edge_j)
+        coordinates_offset = [
+            tuple([tail + (head - tail) / 2
+            for tail, head in zip(*offset_i)]),
+            tuple([tail + (head - tail) / 2
+            for tail, head in zip(*offset_j)])]
 
         return {'head': edge_j['segment_id'],
                 'tail': edge_i['segment_id'],
                 'coordinates': coordinates,
+                'coordinates_offset': coordinates_offset,
                 'weight': ug.MANOEUVRE_PENALTY[manoeuvre],
                 'geometry': sh.geometry.LineString(coordinates),
                 'manoeuvre': manoeuvre}
@@ -291,24 +306,29 @@ def get_inverted_graph(
     
     for edge_i in edges:
         for edge_j in edges:
-            edge_data = get_inverted_edge(edge_i, edge_j)
-            if edge_data is not None:
+            e_data = get_inverted_edge(edge_i, edge_j)
+            if e_data is not None:
                 g.add_edge(
-                    edge_data['tail'],
-                    edge_data['head'],
-                    weight=edge_data['weight'],
-                    geometry=edge_data['geometry'],
-                    coordinates=edge_data['coordinates'],
-                    manoeuvre=edge_data['manoeuvre'],
+                    e_data['tail'],
+                    e_data['head'],
+                    weight=e_data['weight'],
+                    geometry=e_data['geometry'],
+                    coordinates=e_data['coordinates'],
+                    coordinates_offset=e_data['coordinates_offset'],
+                    manoeuvre=e_data['manoeuvre'],
                     type='segment',
                     )
-
-                g.node[
-                    edge_data['head']][
-                        'coordinates'] = edge_data['coordinates'][1]
-                g.node[
-                    edge_data['tail']][
-                        'coordinates'] = edge_data['coordinates'][0]
+                attributes = {
+                    e_data['head']: {'coordinates': e_data['coordinates'][1]}, 
+                    e_data['tail']: {'coordinates': e_data['coordinates'][0]},
+                    }
+                nx.set_node_attributes(g, attributes)
+                # g.node[
+                #     e_data['head']][
+                #         'coordinates'] = e_data['coordinates'][1]
+                # g.node[
+                #     e_data['tail']][
+                #         'coordinates'] = e_data['coordinates'][0]
     
     connected_nodes = sorted(
         nx.strongly_connected_components(g),
