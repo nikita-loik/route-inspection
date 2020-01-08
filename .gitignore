@@ -1,5 +1,5 @@
-venv_city_simulation/
+venv_route_inspection/
 utilities/__pycache__/
 .ipynb_checknodes/
 .vscode/
-.ipynb_checkpoints/*
+.ipynb_checkpoints/
