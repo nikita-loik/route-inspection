@@ -20,7 +20,7 @@ import string
 import pdb
 
 import route.graph_functions as gf
-import dynpl.pa_globals as pa_globals
+import dynpl.pa_global_parameters as pa_global_parameters
 
 import logging
 logging.basicConfig(
@@ -328,7 +328,7 @@ def route_to_df(
         route_by_node: list,
         df_geo,
         crs_city,
-        crs_init: dict=pa_globals.CRS_INIT):
+        crs_init: dict=pa_global_parameters.CRS_INIT):
     route_data = []
     try:
         for i, gh_id in enumerate(route_by_node):

@@ -1,4 +1,17 @@
+import os, sys, inspect
 import numpy as np
+
+working_dir = os.path.dirname(
+    os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(working_dir)
+sys.path.insert(0, parent_dir)
+
+from utilities import global_parameters as gp
+from utilities import get_random_city as grc
+from utilities import get_graph as gg
+from utilities import forge_graph as fg
+from utilities import visualise_graph as vg
+from utilities import get_route as gr
 
 
 def get_angle_between_two_edges(

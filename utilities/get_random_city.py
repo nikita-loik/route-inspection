@@ -1,3 +1,4 @@
+import os, sys, inspect
 import random
 import numpy as np
 
@@ -8,7 +9,7 @@ plt.style.use('fivethirtyeight')
 import shapely as sh
 from shapely import geometry
 
-import utilities.globals as ug
+import utilities.global_parameters as ug
 
 random.seed(0)
 
@@ -19,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# VISUALISE RANDOM CITY =======================================================
+# VISUALISE AREA & GET AREA STATISTICS ========================================
 def get_offset_coordinates(
         segment: dict,
         offset: int = .1) -> list:
@@ -101,6 +102,12 @@ def get_area_statistics(
         f"\t{n_segments} segments\n"
         f"\t{n_one_way_segments} one-way\n"
         f"\t{n_two_way_segments} two-way")
+    
+    return {
+        'n_segments': n_segments,
+        'n_one_way_segments': n_one_way_segments,
+        'n_two_way_segments': n_two_way_segments,
+    }
 
 
 # GET RANDOM CITY =============================================================

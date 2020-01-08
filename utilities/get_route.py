@@ -1,4 +1,4 @@
-import sys
+import os, sys, inspect
 
 import numpy as np
 
@@ -9,7 +9,7 @@ plt.style.use('fivethirtyeight')
 import networkx as nx
 import shapely as sh
 
-import utilities.globals as ug
+import utilities.global_parameters as ug
 import utilities.common as uc
 
 import utilities.visualise_graph as vg

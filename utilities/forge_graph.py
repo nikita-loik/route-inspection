@@ -1,4 +1,4 @@
-import sys
+import os, sys, inspect
 
 import numpy as np
 
@@ -9,7 +9,7 @@ plt.style.use('fivethirtyeight')
 import networkx as nx
 import shapely as sh
 
-import utilities.globals as ug
+import utilities.global_parameters as ug
 import utilities.common as uc
 
 import utilities.visualise_graph as vg
@@ -21,43 +21,49 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# get graph condensations =====================================================
-def condence_nodes(
-    g: nx.DiGraph,
-    nodes_to_condence: list,
-    new_node: str,
-    coordinates: tuple):
-#     https://gist.github.com/Zulko/7629206
+# CONDENSE NODES ==============================================================
+def condense_nodes(
+        g: nx.DiGraph,
+        nodes_to_condense: list,
+        new_node_name: str,
+        new_node_coordinates: tuple) -> nx.DiGraph:
+    '''
+    https://gist.github.com/Zulko/7629206
+    Condense (merge) multiple nodes into one:
+    for all edges going to or coming from one of the 'old nodes',
+    make an edge going to or coming from the 'new node'.
+    INPUT
+    g                       graph (nx.DiGraph)
+    nodes_to_condense       node names to condense (list)
+    new_node_name           condensation-node name (str)
+    new_node_coordinates    condensation-node coordinates (str)
+    ------------
+    OUTPUT
+    g   graph (nx.DiGraph)
+    '''
     
-    g.add_node(new_node, coordinates=coordinates) # add condensation node
+    g.add_node(
+        new_node_name,
+        coordinates=new_node_coordinates) # add condensation node
     
     g_edges = list(g.edges(data=True))
     for tail, head, data in g_edges:
-        # print(tail, head, data)
-        # For all edges related to one of the nodes to condence,
-        # make an edge going to or coming from the `new gene`.
-        # print(data)
-        # {'weight': 0,
-        # 'edge_id': 1,
-        # 'geometry': <shapely.geometry.linestring.LineString object at 0x10f090a10>,
-        # 'coordinates': [(0, 0), (1, 0)],
-        # 'manoeuvre': 'go_straight'}
-        if tail in nodes_to_condence:
+        if tail in nodes_to_condense:
             g.add_edge(
-                new_node,
+                new_node_name,
                 head,
-                coordinates=[coordinates, data['coordinates'][1]],
+                coordinates=[new_node_coordinates, data['coordinates'][1]],
                 manoeuvre='quasi_manoeuvre',
                 type='segment')
-        elif head in nodes_to_condence:
+        elif head in nodes_to_condense:
             g.add_edge(
                 tail,
-                new_node,
-                coordinates=[data['coordinates'][0], coordinates],
+                new_node_name,
+                coordinates=[data['coordinates'][0], new_node_coordinates],
                 manoeuvre='quasi_manoeuvre',
                 type='segment')
     
-    for n in nodes_to_condence: # Remove the condensed nodes
+    for n in nodes_to_condense: # remove the condensed nodes
         g.remove_node(n)
     return g
 
@@ -109,7 +115,7 @@ def add_connecting_grafts(
         condensation_coordinates = tuple(
             [np.mean(c)
             for c in scc_coordinates])
-        condensed_g = condence_nodes(
+        condensed_g = condense_nodes(
             condensed_g,
             scc,
             i,

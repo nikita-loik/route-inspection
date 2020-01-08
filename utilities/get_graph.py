@@ -1,4 +1,4 @@
-import sys
+import os, sys, inspect
 
 import numpy as np
 import shapely as sh
@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 plt.style.use('fivethirtyeight')
 import random
 
-import utilities.globals as ug
+import utilities.global_parameters as ug
 import utilities.common as uc
 
 import utilities.get_random_city as grc
@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# A. get naive graph =========================================================
+# A. GET NAIVE GRAPH ==========================================================
 def get_points_dictionary(
         segments: list
         ) -> dict:
@@ -54,7 +54,7 @@ def get_naive_graph(
         geometry    (shapely linestring)
     ------------
     OUTPUT
-    networkx graph
+    g   graph (nx.DiGraph)
         nodes   point coordinates (tuple)
         edges
             u           start-node coordinates (tuple)
@@ -94,34 +94,8 @@ def get_naive_graph(
 
     return g
 
-# B. get manoeuvre graph ======================================================
-# def get_manoeuvre(
-#         edge_i: dict,
-#         edge_j: dict):
-#     angle = uc.get_angle_between_two_edges(
-#         edge_i, edge_j)
 
-    # v_i = np.array([head - tail
-    #     for tail, head in zip(*edge_i['coordinates'])])
-    # v_j = np.array([head - tail
-    #     for tail, head in zip(*edge_j['coordinates'])])
-    # cosine = np.vdot(v_i, v_j) / (np.linalg.norm(v_i) * np.linalg.norm(v_j))
-    # determinant = np.linalg.det([v_i, v_j])
-    # if determinant < 0:
-    #     angle = 180 * np.arccos(cosine) / np.pi
-    # else:
-    #     angle = 360 - (180 * np.arccos(cosine) / np.pi)
-    
-    # if 30 < angle <= 175:
-    #     return 'turn_right'
-    # elif 175 < angle <= 185:
-    #     return 'make_u_turn'
-    # elif 185 < angle <= 330:
-    #     return 'turn_left'
-    # elif (330 < angle) or (angle <= 30):
-    #     return 'go_straight'
-
-
+# B. GET MANOEUVRE GRAPH ======================================================
 def get_manoeuvre_data(
         edge_in: dict,
         edge_out: dict):
@@ -149,17 +123,9 @@ def get_manoeuvre_graph(
         edges: list):
     g = nx.DiGraph()
 
-    # nodes = {}
-    # sorted_nodes = sorted(
-    #     list(set([p for s in edges for p in s['coordinates']])))
-    # for p in sorted_nodes:
-    #     nodes[p] = sorted_nodes.index(p)
-    
     for e in edges:
         tail = str(e['segment_id']) + '_t'
         head = str(e['segment_id']) + '_h'
-        # tail = nodes[e['coordinates'][0]]
-        # head = nodes[e['coordinates'][1]]
         
         g.add_edge(
             tail,
@@ -201,7 +167,72 @@ def get_manoeuvre_graph(
     return g
 
 
-# C. get random district graph ================================================
+# D. GET INVERTED GRAPH =======================================================
+def get_inverted_edge(
+        edge_i: dict,
+        edge_j: dict):
+    if edge_i['coordinates'][1] == edge_j['coordinates'][0]:
+        manoeuvre = uc.get_manoeuvre(edge_i, edge_j)
+        coordinates = [
+            tuple([tail + (head - tail) / 2
+            for tail, head in zip(*edge_i['coordinates'])]),
+            tuple([tail + (head - tail) / 2
+            for tail, head in zip(*edge_j['coordinates'])])]
+        offset_i = grc.get_offset_coordinates(edge_i)
+        offset_j = grc.get_offset_coordinates(edge_j)
+        coordinates_offset = [
+            tuple([tail + (head - tail) / 2
+            for tail, head in zip(*offset_i)]),
+            tuple([tail + (head - tail) / 2
+            for tail, head in zip(*offset_j)])]
+
+        return {'head': edge_j['segment_id'],
+                'tail': edge_i['segment_id'],
+                'coordinates': coordinates,
+                'coordinates_offset': coordinates_offset,
+                'weight': ug.MANOEUVRE_PENALTY[manoeuvre],
+                'geometry': sh.geometry.LineString(coordinates),
+                'manoeuvre': manoeuvre}
+    else:
+        return None
+
+
+def get_inverted_graph(
+        edges: list):
+    g = nx.DiGraph()
+    
+    for edge_i in edges:
+        for edge_j in edges:
+            e_data = get_inverted_edge(edge_i, edge_j)
+            if e_data is not None:
+                g.add_edge(
+                    e_data['tail'],
+                    e_data['head'],
+                    weight=e_data['weight'],
+                    geometry=e_data['geometry'],
+                    coordinates=e_data['coordinates'],
+                    coordinates_offset=e_data['coordinates_offset'],
+                    manoeuvre=e_data['manoeuvre'],
+                    type='segment',
+                    )
+                attributes = {
+                    e_data['head']: {'coordinates': e_data['coordinates'][1]}, 
+                    e_data['tail']: {'coordinates': e_data['coordinates'][0]},
+                    }
+                nx.set_node_attributes(g, attributes)
+    
+    connected_nodes = sorted(
+        nx.strongly_connected_components(g),
+        key=len,
+        reverse=True)[0]
+    disconnected_nodes = [
+        n for n in list(g.nodes())
+        if n not in connected_nodes]
+    g.remove_nodes_from(disconnected_nodes)
+    return g
+
+
+# D. GET RANDOM-DISTRICT GRAPH ================================================
 def get_random_district_borders(
         g: nx.DiGraph,
         district_size: list = ug.DISTRICT_SIZE):
@@ -268,74 +299,3 @@ def get_random_district_graph(
         f"\twest-east: {district_borders[0][0]} - {district_borders[1][0]}\n"
         f"\tsouth-north: {district_borders[0][1]} - {district_borders[1][1]}")
     return district_g
-
-
-# D. get inverted graph =======================================================
-def get_inverted_edge(
-        edge_i: dict,
-        edge_j: dict):
-    if edge_i['coordinates'][1] == edge_j['coordinates'][0]:
-        manoeuvre = uc.get_manoeuvre(edge_i, edge_j)
-        coordinates = [
-            tuple([tail + (head - tail) / 2
-            for tail, head in zip(*edge_i['coordinates'])]),
-            tuple([tail + (head - tail) / 2
-            for tail, head in zip(*edge_j['coordinates'])])]
-        offset_i = grc.get_offset_coordinates(edge_i)
-        offset_j = grc.get_offset_coordinates(edge_j)
-        coordinates_offset = [
-            tuple([tail + (head - tail) / 2
-            for tail, head in zip(*offset_i)]),
-            tuple([tail + (head - tail) / 2
-            for tail, head in zip(*offset_j)])]
-
-        return {'head': edge_j['segment_id'],
-                'tail': edge_i['segment_id'],
-                'coordinates': coordinates,
-                'coordinates_offset': coordinates_offset,
-                'weight': ug.MANOEUVRE_PENALTY[manoeuvre],
-                'geometry': sh.geometry.LineString(coordinates),
-                'manoeuvre': manoeuvre}
-    else:
-        return None
-
-
-def get_inverted_graph(
-        edges: list):
-    g = nx.DiGraph()
-    
-    for edge_i in edges:
-        for edge_j in edges:
-            e_data = get_inverted_edge(edge_i, edge_j)
-            if e_data is not None:
-                g.add_edge(
-                    e_data['tail'],
-                    e_data['head'],
-                    weight=e_data['weight'],
-                    geometry=e_data['geometry'],
-                    coordinates=e_data['coordinates'],
-                    coordinates_offset=e_data['coordinates_offset'],
-                    manoeuvre=e_data['manoeuvre'],
-                    type='segment',
-                    )
-                attributes = {
-                    e_data['head']: {'coordinates': e_data['coordinates'][1]}, 
-                    e_data['tail']: {'coordinates': e_data['coordinates'][0]},
-                    }
-                nx.set_node_attributes(g, attributes)
-                # g.node[
-                #     e_data['head']][
-                #         'coordinates'] = e_data['coordinates'][1]
-                # g.node[
-                #     e_data['tail']][
-                #         'coordinates'] = e_data['coordinates'][0]
-    
-    connected_nodes = sorted(
-        nx.strongly_connected_components(g),
-        key=len,
-        reverse=True)[0]
-    disconnected_nodes = [
-        n for n in list(g.nodes())
-        if n not in connected_nodes]
-    g.remove_nodes_from(disconnected_nodes)
-    return g

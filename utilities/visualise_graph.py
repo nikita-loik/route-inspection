@@ -1,4 +1,4 @@
-import sys
+import os, sys, inspect
 
 import numpy as np
 import matplotlib
@@ -7,7 +7,7 @@ plt.style.use('fivethirtyeight')
 import networkx as nx
 import shapely as sh
 
-import utilities.globals as ug
+import utilities.global_parameters as ug
 import utilities.get_random_city as grc
 
 import logging
@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# PLOTTING FUNCTIONS ==========================================================
+# HELPER PLOTTING FUNCTIONS ===================================================
 def plot_arrow(
     coordinates: list,
     color: str = 'gray'):
@@ -37,7 +37,7 @@ def plot_arrow(
         width=.07)
 
 
-# A. visualise naive graph ====================================================
+# A. VISUALISE NAIVE GRAPH ====================================================
 def visualise_naive_graph(
         g: nx.DiGraph):
     nodes_coordinates = nx.get_node_attributes(g, 'coordinates')
@@ -130,7 +130,7 @@ def get_naive_graph_statistics(
         }
 
 
-# B. visualise manoeuvre graph ================================================
+# B. VISUALISE MANOEUVRE GRAPH ================================================
 def visualise_manoeuvre_graph(
         g: nx.DiGraph):
     nodes_coordinates = nx.get_node_attributes(g, 'coordinates')
@@ -140,7 +140,7 @@ def visualise_manoeuvre_graph(
     y_min = min([nc[1] for nc in nodes_coordinates.values()])
     y_max = max([nc[1] for nc in nodes_coordinates.values()])
     
-    g_statistics = get_manoeuvre_graph_statistics(g)
+    g_statistics = get_graph_statistics(g)
     dead_ends = g_statistics['dead_ends']
     disconnected_nodes = g_statistics['disconnected_nodes']
     
@@ -191,7 +191,7 @@ def visualise_manoeuvre_graph(
     plt.show()
 
     
-def get_manoeuvre_graph_statistics(
+def get_graph_statistics(
         g: nx.DiGraph):
     
     nodes_coordinates = nx.get_node_attributes(g, 'coordinates')
@@ -237,11 +237,16 @@ def get_manoeuvre_graph_statistics(
     f"\tdead ends: {len(dead_ends)}"
     )
 
-    return{'dead_ends':dead_ends,
-           'disconnected_nodes':disconnected_nodes}
+    return{
+        'straight_drives': straight_drives,
+        'right_turns': right_turns,
+        'left_turns': left_turns,
+        'u_turns': u_turns,
+        'dead_ends':dead_ends,
+        'disconnected_nodes':disconnected_nodes}
 
 
-# C. visualise inverted graph =================================================
+# C. VISUALISE INVERTED GRAPH =================================================
 def visualise_inverted_graph(
         inverted_g: nx.DiGraph,
         manoeuvre_g: nx.DiGraph
@@ -253,7 +258,7 @@ def visualise_inverted_graph(
     nodes_coordinates_inverted_g = nx.get_node_attributes(
         inverted_g,
         'coordinates')
-    statistics_inverted_g = get_manoeuvre_graph_statistics(inverted_g)
+    statistics_inverted_g = get_graph_statistics(inverted_g)
     dead_ends_inverted_g = statistics_inverted_g['dead_ends']
     disconnected_nodes_inverted_g = statistics_inverted_g['disconnected_nodes']
     for e in inverted_g.edges:
@@ -276,7 +281,7 @@ def visualise_inverted_graph(
     nodes_coordinates_manoeuvre_g = nx.get_node_attributes(
         manoeuvre_g,
         'coordinates')
-    statistics_manoeuvre_g= get_manoeuvre_graph_statistics(manoeuvre_g)
+    statistics_manoeuvre_g= get_graph_statistics(manoeuvre_g)
     dead_ends_manoeuvre_g = statistics_manoeuvre_g['dead_ends']
     disconnected_nodes_manoeuvre_g = statistics_manoeuvre_g['disconnected_nodes']
     
