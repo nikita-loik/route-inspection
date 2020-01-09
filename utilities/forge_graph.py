@@ -317,10 +317,29 @@ def join_edges(
     return working_g
 
 # PRUNE GRAPH =================================================================
+def sort_edges_by_pairs(
+        edges: list,
+        ) -> list:
+    edges_sorted = []
+    for e in edges:
+        if e not in edges_sorted:
+            edges_sorted.append(e)
+            if (((e[0] * e[1]) < 0) and
+                ((-e[0], -e[1]) in edges) and
+                ((-e[0], -e[1]) not in edges_sorted)):
+                edges_sorted.append((-e[0], -e[1]))
+    return edges_sorted
+
+
 def prune_u_turns(
         g: nx.DiGraph):
     edges = list(g.edges())
-    for e in edges:
+    # NB! For small graphs, produces much neater result,
+    # with fewer edges to be added when balancing the nodes.
+    # For big graphs doesn't make any difference.
+    edges_sorted = sort_edges_by_pairs(edges)
+    # edges_sorted = edges
+    for e in edges_sorted:
         manoeuvre = g.get_edge_data(*e)['manoeuvre']
         if manoeuvre == 'make_u_turn':
             test_g = g.copy()
@@ -341,6 +360,18 @@ def prune_left_turns(
                 g.remove_edge(*e)
     return g
 
+
+def prune_right_turns(
+        g: nx.DiGraph):
+    edges = list(g.edges())
+    for e in edges:
+        manoeuvre = g.get_edge_data(*e)['manoeuvre']
+        if manoeuvre == 'right_left':
+            test_g = g.copy()
+            test_g.remove_edge(*e)
+            if nx.is_strongly_connected(test_g):
+                g.remove_edge(*e)
+    return g
 
 # BALLANCE NODES ==============================================================
 def get_imbalanced_nodes(

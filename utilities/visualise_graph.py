@@ -277,6 +277,19 @@ def visualise_inverted_graph(
     for n in disconnected_nodes_inverted_g:
         plt.scatter(n[0], n[1], s=500, c="red", alpha=0.3)
 
+    # Label nodes.
+    for n in inverted_g.nodes():
+        x_coordinate = nodes_coordinates_inverted_g[n][0] + 0.1
+        y_coordinate = nodes_coordinates_inverted_g[n][1] + 0.1
+        plt.text(
+            x_coordinate,
+            y_coordinate,
+            n,
+            color='r',
+            # size=10,
+            )
+    plt.axis('off')
+
     # Plot manoeuvre graph.
     nodes_coordinates_manoeuvre_g = nx.get_node_attributes(
         manoeuvre_g,
