@@ -17,4 +17,12 @@ pip install jupyter
 python -m ipykernel install --user --name="${venv_name}"
 # F. Install requirements.
 pip install -r requirements.txt
-echo "===virtual environment created==="
+echo "===virtual environment .${venv_name} created==="
+# G. If doesn't exist, add virtual environment path to .gitignore.
+grep -qxF ".${venv_name}/" .gitignore || echo ".${venv_name}/" >> .gitignore
+echo "===updated .gitignore with ".${venv_name}/"==="
+# H. Add and commit .gitignore to git.
+# NB Will report 'no changes added to commit' if .gitignore stayed the same.
+git add .gitignore
+git commit -m "Update .gitignore with '.${venv_name}/'"
+echo "===added & committed .gitignore to git==="
