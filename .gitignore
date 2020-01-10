@@ -1,6 +1,6 @@
+.venv_route_inspection/
 .ipynb_checknodes/
 .vscode/
 .ipynb_checkpoints/
-venv_route_inspection/
 utilities/__pycache__/
 tests/__pycache__/
